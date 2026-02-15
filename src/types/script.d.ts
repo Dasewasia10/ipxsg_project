@@ -43,3 +43,15 @@ export interface ChapterData {
   chapterId: string;
   blocks: Record<string, ScriptLine[]>;
 }
+export interface SaveSlotData {
+  slotId: number;
+  date: string;
+  chapterUrl: string;
+  blockId: string;
+  lineIndex: number;
+  snippet: string;
+  gameStateSnapshot: any;
+  savedBg?: string | null;
+  savedSprite?: string | null;
+  savedBgm?: string | null;
+}

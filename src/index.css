@@ -4,3 +4,5 @@
   --color-brand: #3b82f6;
   --font-display: "Satoshi", "sans-serif";
 }
+
+@plugin 'tailwind-scrollbar';

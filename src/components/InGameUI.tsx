@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-//   Play,
-//   FastForward,
+  Play,
+  FastForward,
   Save,
   FolderOpen,
   LogOut,
-//   History,
+  History,
 } from "lucide-react";
 import type {
-//   ScriptLine,
+  ScriptLine,
   ChapterData,
   StateChange,
   ChoiceCondition,
@@ -18,52 +18,85 @@ import { useGameState } from "../store/useGameState";
 
 interface Props {
   chapterData: ChapterData;
+  initialBlock?: string;
+  initialIndex?: number;
+  initialBg?: string | null;
+  initialSprite?: string | null;
+  initialBgm?: string | null;
   onQuit: () => void;
-  onOpenOverlay: (overlay: string) => void;
+  // Prop fungsi ini sekarang mengirimkan data visual yang sedang aktif juga
+  onOpenOverlay: (
+    overlay: string,
+    block: string,
+    index: number,
+    text: string,
+    bg: string | null,
+    sprite: string | null,
+    bgm: string | null,
+  ) => void;
 }
 
-const InGameUI: React.FC<Props> = ({ chapterData, onQuit, onOpenOverlay }) => {
-  // --- STATE MESIN ---
-  const [currentBlock, setCurrentBlock] = useState<string>("start");
-  const [currentIndex, setCurrentIndex] = useState(0);
+const InGameUI: React.FC<Props> = ({
+  chapterData,
+  initialBlock = "start",
+  initialIndex = 0,
+  initialBg = null,
+  initialSprite = null,
+  initialBgm = null,
+  onQuit,
+  onOpenOverlay,
+}) => {
+  const [currentBlock, setCurrentBlock] = useState<string>(initialBlock);
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
-  // --- STATE TEKS ---
   const [displayedText, setDisplayedText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false); // STATE SKIP KEMBALI
 
-  // --- STATE VISUAL PERSISTEN ---
-  const [currentBg, setCurrentBg] = useState<string | null>(null);
-  const [currentSprite, setCurrentSprite] = useState<string | null>(null);
+  // STATE VISUAL & AUDIO (Diisi dengan initial data dari Save Game)
+  const [currentBg, setCurrentBg] = useState<string | null>(initialBg);
+  const [currentSprite, setCurrentSprite] = useState<string | null>(
+    initialSprite,
+  );
+  const [currentBgmUrl, setCurrentBgmUrl] = useState<string | null>(initialBgm);
 
-  // --- REFS ---
   const typeIntervalRef = useRef<number | null>(null);
   const bgmRef = useRef<HTMLAudioElement | null>(null);
 
-  // Ambil baris skrip yang sedang aktif
   const activeScript = chapterData.blocks[currentBlock] || [];
   const currentLine = activeScript[currentIndex];
 
   // ==========================================
-  // LOGIKA EVALUASI STATE (ZUSTAND)
+  // LOGIKA AUDIO LOAD (Saat komponen pertama kali dirender)
   // ==========================================
+  useEffect(() => {
+    if (initialBgm) {
+      bgmRef.current = new Audio(initialBgm);
+      bgmRef.current.loop = true;
+      bgmRef.current
+        .play()
+        .catch((e) => console.warn("Browser mencegah autoplay", e));
+    }
+    return () => {
+      if (bgmRef.current) bgmRef.current.pause();
+    };
+  }, [initialBgm]);
 
-  // 1. Eksekutor Perubahan State
+  // ==========================================
+  // ZUSTAND LOGIC
+  // ==========================================
   const executeStateChanges = (changes?: StateChange[]) => {
     if (!changes || changes.length === 0) return;
-
     const currentState = useGameState.getState();
     const updates: Record<string, any> = {};
 
-    changes.forEach((change) => {
-      const { target, operation, value } = change;
+    changes.forEach(({ target, operation, value }) => {
       if (currentState.hasOwnProperty(target)) {
-        if (operation === "set") {
-          updates[target] = value;
-        } else if (operation === "add") {
+        if (operation === "set") updates[target] = value;
+        else if (operation === "add") {
           let newValue =
             (currentState[target as keyof typeof currentState] as number) +
             value;
-          // Clamping nilai 0-100 untuk variabel tertentu agar tidak minus/over
           if (["makinoSanity", "trustMei", "manaAwareness"].includes(target)) {
             newValue = Math.max(0, Math.min(100, newValue));
           }
@@ -71,21 +104,15 @@ const InGameUI: React.FC<Props> = ({ chapterData, onQuit, onOpenOverlay }) => {
         }
       }
     });
-
-    if (Object.keys(updates).length > 0) {
-      useGameState.setState(updates);
-    }
+    if (Object.keys(updates).length > 0) useGameState.setState(updates);
   };
 
-  // 2. Evaluator Kondisi Pilihan (Choice)
   const isConditionMet = (condition?: ChoiceCondition) => {
-    if (!condition) return true; // Munculkan jika tidak ada syarat
-
+    if (!condition) return true;
     const currentState = useGameState.getState();
     const stateValue = currentState[
       condition.target as keyof typeof currentState
     ] as number;
-
     switch (condition.operator) {
       case ">":
         return stateValue > condition.value;
@@ -103,24 +130,23 @@ const InGameUI: React.FC<Props> = ({ chapterData, onQuit, onOpenOverlay }) => {
   };
 
   // ==========================================
-  // LOGIKA NAVIGASI CERITA
+  // NAVIGASI
   // ==========================================
-
   const advance = () => {
     if (currentIndex < activeScript.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
-      // Jika blok habis tanpa ada pilihan (Choice), anggap chapter tamat / kembali ke menu
       onQuit();
     }
   };
 
   const handleBoxClick = () => {
-    // Jangan izinkan klik jika sedang di layar pilihan
     if (currentLine?.type === "choice_selection") return;
 
+    // Matikan skip jika pemain mengklik layar manual
+    if (isSkipping) setIsSkipping(false);
+
     if (isTyping) {
-      // Selesaikan ketikan instan
       if (typeIntervalRef.current) clearInterval(typeIntervalRef.current);
       setDisplayedText(currentLine?.text || "");
       setIsTyping(false);
@@ -130,29 +156,22 @@ const InGameUI: React.FC<Props> = ({ chapterData, onQuit, onOpenOverlay }) => {
   };
 
   const handleChoiceClick = (choice: ChoiceOption) => {
-    // 1. Jalankan efek state jika ada (misal: Sanity turun karena milih ini)
     executeStateChanges(choice.stateChanges);
-
-    // 2. Pindah ke blok baru
     setCurrentBlock(choice.nextBlock);
     setCurrentIndex(0);
+    setIsSkipping(false); // Matikan skip setelah memilih
   };
 
   // ==========================================
-  // EFEK EKSEKUSI BARIS BARU
+  // EFEK BARIS BARU
   // ==========================================
   useEffect(() => {
     if (!currentLine) return;
-
-    // 1. Eksekusi Inline State Changes (Perubahan pasif dari dialog)
     executeStateChanges(currentLine.stateChanges);
 
-    // 2. Proses Visual (Update Background & Sprite)
-    if (currentLine.visuals?.background) {
+    if (currentLine.visuals?.background)
       setCurrentBg(currentLine.visuals.background);
-    }
     if (currentLine.visuals?.sprite !== undefined) {
-      // Jika diisi "none", hapus sprite dari layar. Jika ada URL, tampilkan.
       setCurrentSprite(
         currentLine.visuals.sprite === "none"
           ? null
@@ -160,27 +179,36 @@ const InGameUI: React.FC<Props> = ({ chapterData, onQuit, onOpenOverlay }) => {
       );
     }
 
-    // 3. Proses Audio
     if (currentLine.audio) {
-      if (currentLine.audio.bgmAction === "stop" && bgmRef.current) {
-        bgmRef.current.pause();
-        bgmRef.current = null;
+      if (currentLine.audio.bgmAction === "stop") {
+        setCurrentBgmUrl(null);
+        if (bgmRef.current) {
+          bgmRef.current.pause();
+          bgmRef.current = null;
+        }
       } else if (currentLine.audio.bgm) {
+        setCurrentBgmUrl(currentLine.audio.bgm);
         if (bgmRef.current) bgmRef.current.pause();
         bgmRef.current = new Audio(currentLine.audio.bgm);
         bgmRef.current.loop = true;
-        bgmRef.current
-          .play()
-          .catch((e) => console.warn("Autoplay audio dicegah browser:", e));
+        bgmRef.current.play().catch((e) => console.warn(e));
       }
     }
 
-    // 4. Proses Teks (Typewriter)
     if (currentLine.text) {
       setIsTyping(true);
       setDisplayedText("");
       let charIndex = 0;
       const fullText = currentLine.text;
+
+      // Jika mode skip aktif, hapus interval dan langsung tamatkan baris ini dalam sekejap
+      if (isSkipping) {
+        setDisplayedText(fullText);
+        setIsTyping(false);
+        // Beri jeda sangat kecil sebelum loncat ke baris berikutnya
+        const skipTimer = setTimeout(() => advance(), 150);
+        return () => clearTimeout(skipTimer);
+      }
 
       typeIntervalRef.current = window.setInterval(() => {
         charIndex++;
@@ -189,69 +217,49 @@ const InGameUI: React.FC<Props> = ({ chapterData, onQuit, onOpenOverlay }) => {
           if (typeIntervalRef.current) clearInterval(typeIntervalRef.current);
           setIsTyping(false);
         }
-      }, 30); // Kecepatan teks
+      }, 30);
     } else {
       setIsTyping(false);
       setDisplayedText("");
-
-      // Jika baris ini hanya berisi penggantian background (tanpa teks & bukan choice), langsung auto-advance
-      if (currentLine.type === "background") {
-        setTimeout(() => {
-          advance();
-        }, 500); // Jeda 0.5 detik agar background sempat muncul sebelum dialog masuk
-      }
+      if (currentLine.type === "background") advance();
     }
 
     return () => {
       if (typeIntervalRef.current) clearInterval(typeIntervalRef.current);
     };
-  }, [currentIndex, currentBlock]);
+  }, [currentIndex, currentBlock, isSkipping]);
 
-  // Bersihkan audio jika keluar dari komponen
-  useEffect(() => {
-    return () => {
-      if (bgmRef.current) bgmRef.current.pause();
-    };
-  }, []);
-
-  // ==========================================
-  // RENDER UI
-  // ==========================================
   return (
-    <div className="absolute inset-0 bg-black overflow-hidden selection:bg-pink-500">
-      {/* 1. LAYER BACKGROUND */}
+    <div className="absolute inset-0 overflow-hidden bg-black selection:bg-pink-500">
       {currentBg && (
         <div
           className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out"
           style={{ backgroundImage: `url('${currentBg}')` }}
         />
       )}
-
-      {/* 2. LAYER SPRITE (Lawan Bicara) */}
       {currentSprite && (
-        <div className="absolute inset-0 flex items-end justify-center pointer-events-none z-10">
+        <div className="absolute inset-0 z-10 flex items-end justify-center pointer-events-none">
           <img
             src={currentSprite}
-            className="h-[80%] lg:h-[90%] object-contain drop-shadow-2xl animate-in fade-in duration-500"
+            className="h-[80%] object-contain drop-shadow-2xl animate-in fade-in duration-500 lg:h-[90%]"
             alt="Sprite"
           />
         </div>
       )}
 
-      {/* 3. LAYER CHOICES (Percabangan) */}
       {currentLine?.type === "choice_selection" && !isTyping && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-          <div className="flex flex-col gap-4 w-full max-w-2xl animate-in slide-in-from-bottom-10">
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+          <div className="flex w-full max-w-2xl flex-col gap-4 animate-in slide-in-from-bottom-10">
             {currentLine.choices
-              ?.filter((choice) => isConditionMet(choice.condition))
+              ?.filter((c) => isConditionMet(c.condition))
               .map((choice, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleChoiceClick(choice)}
-                  className="group relative px-8 py-4 bg-[#0f131a]/90 border border-white/20 hover:border-pink-500 transition-all duration-300 transform -skew-x-6 shadow-lg"
+                  className="group relative border border-white/20 bg-[#0f131a]/90 px-8 py-4 shadow-lg transition-all duration-300 hover:border-pink-500 transform -skew-x-6"
                 >
-                  <div className="absolute inset-0 w-1 bg-pink-500 -translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
-                  <span className="transform skew-x-6 block text-center text-lg font-medium tracking-wide text-gray-200 group-hover:text-white">
+                  <div className="absolute inset-0 w-1 -translate-x-full bg-pink-500 transition-transform duration-300 group-hover:translate-x-0" />
+                  <span className="block text-center text-lg font-medium tracking-wide text-gray-200 group-hover:text-white transform skew-x-6">
                     {choice.text}
                   </span>
                 </button>
@@ -260,76 +268,113 @@ const InGameUI: React.FC<Props> = ({ chapterData, onQuit, onOpenOverlay }) => {
         </div>
       )}
 
-      {/* 4. LAYER TEXT BOX & QUICK MENU */}
       {(currentLine?.type === "dialogue" ||
         (currentLine?.type === "choice_selection" && currentLine?.text)) && (
-        <div className="absolute bottom-0 w-full z-40 flex flex-col items-center pb-6 lg:pb-10 px-4">
-          {/* Quick Menu */}
-          <div className="w-full max-w-5xl flex justify-end mb-2 pr-4 lg:pr-8">
-            <div className="flex gap-1 bg-black/60 backdrop-blur-md p-1.5 rounded border border-white/10 shadow-lg pointer-events-auto">
-              {[
-                {
-                  label: "Save",
-                  icon: <Save size={14} />,
-                  action: () => onOpenOverlay("save"),
-                },
-                {
-                  label: "Load",
-                  icon: <FolderOpen size={14} />,
-                  action: () => onOpenOverlay("load"),
-                },
-                { label: "Menu", icon: <LogOut size={14} />, action: onQuit },
-              ].map((btn, idx) => (
-                <button
-                  key={idx}
-                  onClick={btn.action}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase font-bold tracking-widest rounded text-gray-400 hover:text-white hover:bg-white/10 transition-all"
-                >
-                  {btn.icon}{" "}
-                  <span className="hidden sm:inline">{btn.label}</span>
-                </button>
-              ))}
+        <div className="absolute bottom-0 z-40 flex w-full flex-col items-center px-4 pb-6 lg:pb-10">
+          {/* QUICK MENU YANG DIPERBAIKI */}
+          <div className="mb-2 flex w-full max-w-5xl justify-end pr-4 lg:pr-8">
+            <div className="pointer-events-auto flex gap-1 rounded border border-white/10 bg-black/60 p-1.5 shadow-lg backdrop-blur-md">
+              <button
+                onClick={() =>
+                  onOpenOverlay(
+                    "log",
+                    currentBlock,
+                    currentIndex,
+                    displayedText,
+                    currentBg,
+                    currentSprite,
+                    currentBgmUrl,
+                  )
+                }
+                className="flex items-center gap-1.5 rounded px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 transition-all hover:bg-white/10 hover:text-white"
+              >
+                <History size={14} />{" "}
+                <span className="hidden sm:inline">Log</span>
+              </button>
+              <button
+                onClick={() => setIsSkipping(!isSkipping)}
+                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-all ${isSkipping ? "bg-pink-500/30 text-pink-400" : "text-gray-400 hover:bg-white/10 hover:text-white"}`}
+              >
+                <FastForward size={14} />{" "}
+                <span className="hidden sm:inline">Skip</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsSkipping(false);
+                  onOpenOverlay(
+                    "save",
+                    currentBlock,
+                    currentIndex,
+                    displayedText,
+                    currentBg,
+                    currentSprite,
+                    currentBgmUrl,
+                  );
+                }}
+                className="flex items-center gap-1.5 rounded px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 transition-all hover:bg-white/10 hover:text-white"
+              >
+                <Save size={14} />{" "}
+                <span className="hidden sm:inline">Save</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsSkipping(false);
+                  onOpenOverlay(
+                    "load",
+                    currentBlock,
+                    currentIndex,
+                    displayedText,
+                    currentBg,
+                    currentSprite,
+                    currentBgmUrl,
+                  );
+                }}
+                className="flex items-center gap-1.5 rounded px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 transition-all hover:bg-white/10 hover:text-white"
+              >
+                <FolderOpen size={14} />{" "}
+                <span className="hidden sm:inline">Load</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsSkipping(false);
+                  onQuit();
+                }}
+                className="flex items-center gap-1.5 rounded px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 transition-all hover:bg-white/10 hover:text-white"
+              >
+                <LogOut size={14} />{" "}
+                <span className="hidden sm:inline">Menu</span>
+              </button>
             </div>
           </div>
 
-          {/* Dialog Box */}
           <div
-            className={`w-full max-w-5xl relative group ${currentLine?.type !== "choice_selection" ? "cursor-pointer pointer-events-auto" : "pointer-events-none"}`}
             onClick={handleBoxClick}
+            className={`relative w-full max-w-5xl group ${currentLine?.type !== "choice_selection" ? "pointer-events-auto cursor-pointer" : "pointer-events-none"}`}
           >
-            {/* Nameplate */}
             {currentLine.speakerName && (
-              <div className="absolute -top-5 left-0 lg:left-8 z-50">
-                <div className="bg-white text-black px-8 py-1.5 transform -skew-x-12 border-l-[6px] border-pink-600 shadow-lg">
-                  <div className="transform skew-x-12 font-bold tracking-wider text-base uppercase">
+              <div className="absolute -top-5 left-0 z-50 lg:left-8">
+                <div className="border-l-[6px] border-pink-600 bg-white px-8 py-1.5 shadow-lg transform -skew-x-12">
+                  <div className="text-base font-bold uppercase tracking-wider text-black transform skew-x-12">
                     {currentLine.speakerName}
                   </div>
                 </div>
               </div>
             )}
-
             <div
-              className="relative bg-[#0f131a]/95 backdrop-blur-lg border-t border-white/10 shadow-2xl p-6 lg:p-8 min-h-40 lg:min-h-45"
+              className="relative min-h-40 border-t border-white/10 bg-[#0f131a]/95 p-6 shadow-2xl backdrop-blur-lg lg:min-h-45 lg:p-8"
               style={{
                 clipPath: "polygon(0 0, 100% 0, 100% 85%, 98% 100%, 0 100%)",
               }}
             >
-              <div className="absolute top-0 left-0 w-full h-px bg-linear-to-r from-transparent via-white/30 to-transparent"></div>
-
+              <div className="absolute left-0 top-0 h-px w-full bg-linear-to-r from-transparent via-white/30 to-transparent"></div>
               <div className="relative z-10 h-full">
-                <p className="text-lg lg:text-xl font-medium leading-relaxed text-gray-100 drop-shadow-md whitespace-pre-wrap">
+                <p className="whitespace-pre-wrap text-lg font-medium leading-relaxed text-gray-100 drop-shadow-md lg:text-xl">
                   {displayedText}
                   {isTyping && (
-                    <span className="inline-block w-2 h-5 bg-pink-500 ml-1 animate-pulse align-sub"></span>
+                    <span className="ml-1 inline-block h-5 w-2 animate-pulse bg-pink-500 align-sub"></span>
                   )}
                 </p>
               </div>
-
-              {!isTyping && currentLine?.type === "dialogue" && (
-                <div className="absolute bottom-4 right-8 animate-bounce text-pink-500">
-                  <div className="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-12 border-t-pink-500"></div>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -337,5 +382,4 @@ const InGameUI: React.FC<Props> = ({ chapterData, onQuit, onOpenOverlay }) => {
     </div>
   );
 };
-
 export default InGameUI;

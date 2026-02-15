@@ -6,10 +6,14 @@ import {
   Settings,
   Image as ImageIcon,
   Info,
-  X,
 } from "lucide-react";
 import InGameUI from "../components/InGameUI";
-import type { ChapterData } from "../types/script";
+import SaveLoadOverlay from "../components/SaveLoadOverlay";
+import type { SaveSlotData, ChapterData } from "../types/script";
+import { useGameState } from "../store/useGameState";
+
+const CURRENT_CHAPTER_URL =
+  "https://ipxsg-scripts-backend.vercel.app/scripts/ch01-prologue.json";
 
 const VisualNovel: React.FC = () => {
   // --- STATE HALAMAN ---
@@ -23,59 +27,106 @@ const VisualNovel: React.FC = () => {
   // --- STATE DATA CERITA ---
   const [chapterData, setChapterData] = useState<ChapterData | null>(null);
 
-  // --- LOGIKA FETCH DARI R2 ---
+  // State untuk melacak posisi save dari InGameUI
+  const [savePosition, setSavePosition] = useState({
+    block: "start",
+    index: 0,
+    text: "",
+    bg: null as string | null,
+    sprite: null as string | null,
+    bgm: null as string | null,
+  });
+
+  // State untuk me-load game
+  const [loadTarget, setLoadTarget] = useState({
+    block: "start",
+    index: 0,
+    bg: null as string | null,
+    sprite: null as string | null,
+    bgm: null as string | null,
+  });
+
+  // FUNGSI START NEW GAME
   const startGame = async () => {
     setAppState("loading");
+    useGameState.getState().resetGame(); // Reset Global State kalau New Game!
     try {
-      // Mengambil file JSON prolog dari R2 milikmu
-      // Sesuaikan nama filenya jika kamu menyimpannya dengan nama "ch0-prologue.json"
-      const response = await axios.get<ChapterData>(
-        "https://ipxsg-scripts-backend.vercel.app/scripts/ch01-prologue.json",
-      );
-
+      const response = await axios.get<ChapterData>(CURRENT_CHAPTER_URL);
       setChapterData(response.data);
+      setLoadTarget({
+        block: "start",
+        index: 0,
+        bg: null,
+        sprite: null,
+        bgm: null,
+      });
       setAppState("playing");
       setOverlay("none");
     } catch (error) {
-      console.error("Gagal memuat chapter dari R2:", error);
-      alert(
-        "Gagal memuat data cerita. Pastikan URL R2 dan nama file JSON benar, serta CORS di R2 sudah diizinkan.",
-      );
+      console.error(error);
       setAppState("menu");
     }
   };
 
-  // --- RENDER OVERLAY (Menu Sistem) ---
+  // FUNGSI LOAD GAME
+  const loadGame = async (saveData: SaveSlotData) => {
+    setAppState("loading");
+    useGameState.setState(saveData.gameStateSnapshot);
+
+    try {
+      const response = await axios.get<ChapterData>(saveData.chapterUrl);
+      setChapterData(response.data);
+
+      // Masukkan juga data memori visual & audio
+      setLoadTarget({
+        block: saveData.blockId,
+        index: saveData.lineIndex,
+        bg: saveData.savedBg || null,
+        sprite: saveData.savedSprite || null,
+        bgm: saveData.savedBgm || null,
+      });
+
+      setAppState("playing");
+      setOverlay("none");
+    } catch (error) {
+      console.error(error);
+      setAppState("menu");
+    }
+  };
+
+  // RENDER MODAL
   const renderOverlay = () => {
     if (overlay === "none") return null;
 
-    const titles = {
-      save: "Save Game",
-      load: "Load Game",
-      options: "Settings",
-      gallery: "CG Gallery",
-      credits: "Credits",
-    };
+    // Gunakan komponen yang baru kita buat khusus untuk Save/Load
+    if (overlay === "save" || overlay === "load") {
+      return (
+        <SaveLoadOverlay
+          mode={overlay}
+          onClose={() => setOverlay("none")}
+          onLoadGame={loadGame}
+          currentChapterUrl={CURRENT_CHAPTER_URL}
+          currentBlock={savePosition.block}
+          currentIndex={savePosition.index}
+          currentText={savePosition.text}
+          currentBg={savePosition.bg}
+          currentSprite={savePosition.sprite}
+          currentBgm={savePosition.bgm}
+        />
+      );
+    }
 
+    // Modal lain seperti Settings/Credits bisa dibuat komponen terpisah nanti
     return (
-      <div className="absolute inset-0 z-100 bg-black/80 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-300">
-        <div className="w-full max-w-4xl h-[80vh] bg-[#0f1115] border border-white/10 shadow-2xl flex flex-col relative">
-          <div className="flex justify-between items-center p-6 border-b border-white/10 bg-white/5">
-            <h2 className="text-2xl font-black tracking-widest text-transparent bg-clip-text bg-linear-to-r from-pink-400 to-purple-500 uppercase">
-              {titles[overlay]}
-            </h2>
-            <button
-              onClick={() => setOverlay("none")}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <X size={28} />
-            </button>
-          </div>
-          <div className="flex-1 p-8 overflow-y-auto flex items-center justify-center">
-            <p className="text-gray-500 tracking-[0.2em] uppercase font-bold animate-pulse">
-              UI for {titles[overlay]} is under construction
-            </p>
-          </div>
+      <div className="absolute inset-0 z-100 bg-black/80 flex items-center justify-center">
+        <div className="bg-[#0f1115] p-8 border border-white/10 text-white">
+          <p>UI {overlay} belum dibuat.</p>
+          <button
+            onClick={() => setOverlay("none")}
+            className="mt-4 text-pink-500"
+          >
+            Close
+          </button>
         </div>
       </div>
     );
@@ -186,11 +237,19 @@ const VisualNovel: React.FC = () => {
       {chapterData && (
         <InGameUI
           chapterData={chapterData}
+          initialBlock={loadTarget.block}
+          initialIndex={loadTarget.index}
+          initialBg={loadTarget.bg}
+          initialSprite={loadTarget.sprite}
+          initialBgm={loadTarget.bgm}
           onQuit={() => {
             setAppState("menu");
             setChapterData(null);
           }}
-          onOpenOverlay={(overlayType) => setOverlay(overlayType as any)}
+          onOpenOverlay={(overlayType, block, index, text, bg, sprite, bgm) => {
+            setSavePosition({ block, index, text, bg, sprite, bgm });
+            setOverlay(overlayType as any);
+          }}
         />
       )}
     </div>
