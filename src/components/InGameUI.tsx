@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Play,
-  FastForward,
+//   Play,
+//   FastForward,
   Save,
   FolderOpen,
   LogOut,
-  History,
+//   History,
 } from "lucide-react";
 import type {
-  ScriptLine,
+//   ScriptLine,
   ChapterData,
   StateChange,
   ChoiceCondition,
