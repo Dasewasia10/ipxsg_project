@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Play,
+//   Play,
   FastForward,
   Save,
   FolderOpen,
@@ -8,7 +8,7 @@ import {
   History,
 } from "lucide-react";
 import type {
-  ScriptLine,
+//   ScriptLine,
   ChapterData,
   StateChange,
   ChoiceCondition,
