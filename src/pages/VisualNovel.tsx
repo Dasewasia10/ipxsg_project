@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import InGameUI from "../components/InGameUI";
 import SaveLoadOverlay from "../components/SaveLoadOverlay";
+import SettingsOverlay from "../components/SettingsOverlay";
+import CreditsOverlay from "../components/CreditsOverlay";
+import GalleryOverlay from "../components/GalleryOverlay";
 import type { SaveSlotData, ChapterData } from "../types/script";
 import { useGameState } from "../store/useGameState";
 
@@ -26,6 +29,9 @@ const VisualNovel: React.FC = () => {
 
   // --- STATE DATA CERITA ---
   const [chapterData, setChapterData] = useState<ChapterData | null>(null);
+
+  // --- STATE GAME SESSION ---
+  const [gameSessionId, setGameSessionId] = useState(Date.now());
 
   // State untuk melacak posisi save dari InGameUI
   const [savePosition, setSavePosition] = useState({
@@ -60,6 +66,8 @@ const VisualNovel: React.FC = () => {
         sprite: null,
         bgm: null,
       });
+
+      setGameSessionId(Date.now());
       setAppState("playing");
       setOverlay("none");
     } catch (error) {
@@ -86,10 +94,37 @@ const VisualNovel: React.FC = () => {
         bgm: saveData.savedBgm || null,
       });
 
+      setGameSessionId(Date.now());
       setAppState("playing");
       setOverlay("none");
     } catch (error) {
       console.error(error);
+      setAppState("menu");
+    }
+  };
+
+  // FUNGSI GANTI CHAPTER
+  const handleChangeChapter = async (nextUrl: string) => {
+    setAppState("loading");
+    try {
+      const response = await axios.get<ChapterData>(nextUrl);
+      setChapterData(response.data);
+
+      // Reset kordinat load target layaknya New Game
+      setLoadTarget({
+        block: "start",
+        index: 0,
+        bg: null,
+        sprite: null,
+        bgm: null,
+      });
+
+      setGameSessionId(Date.now());
+      setAppState("playing");
+      setOverlay("none");
+    } catch (error) {
+      console.error("Gagal memuat chapter selanjutnya:", error);
+      alert("Gagal memuat chapter selanjutnya. Pastikan URL JSON benar.");
       setAppState("menu");
     }
   };
@@ -103,9 +138,11 @@ const VisualNovel: React.FC = () => {
       return (
         <SaveLoadOverlay
           mode={overlay}
+          inGame={appState === "playing"}
           onClose={() => setOverlay("none")}
           onLoadGame={loadGame}
           currentChapterUrl={CURRENT_CHAPTER_URL}
+          currentChapterTitle={chapterData?.title || "Unknown Chapter"}
           currentBlock={savePosition.block}
           currentIndex={savePosition.index}
           currentText={savePosition.text}
@@ -116,20 +153,32 @@ const VisualNovel: React.FC = () => {
       );
     }
 
+    if (overlay === "options") {
+      return <SettingsOverlay onClose={() => setOverlay("none")} />;
+    }
+
+    if (overlay === "gallery") {
+      return <GalleryOverlay onClose={() => setOverlay("none")} />;
+    }
+
+    if (overlay === "credits") {
+      return <CreditsOverlay onClose={() => setOverlay("none")} />;
+    }
+
     // Modal lain seperti Settings/Credits bisa dibuat komponen terpisah nanti
-    return (
-      <div className="absolute inset-0 z-100 bg-black/80 flex items-center justify-center">
-        <div className="bg-[#0f1115] p-8 border border-white/10 text-white">
-          <p>UI {overlay} belum dibuat.</p>
-          <button
-            onClick={() => setOverlay("none")}
-            className="mt-4 text-pink-500"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    );
+    // return (
+    //   <div className="absolute inset-0 z-100 bg-black/80 flex items-center justify-center">
+    //     <div className="bg-[#0f1115] p-8 border border-white/10 text-white">
+    //       <p>UI {overlay} belum dibuat.</p>
+    //       <button
+    //         onClick={() => setOverlay("none")}
+    //         className="mt-4 text-pink-500"
+    //       >
+    //         Close
+    //       </button>
+    //     </div>
+    //   </div>
+    // );
   };
 
   // ==========================================
@@ -150,13 +199,17 @@ const VisualNovel: React.FC = () => {
 
         {renderOverlay()}
 
-        <div className="relative z-10 w-full h-full flex flex-col justify-center px-16 lg:px-32">
+        {/* PERUBAHAN: px-16 diganti jadi px-6 untuk mobile, lalu md:px-16 untuk desktop */}
+        <div className="relative z-10 w-full h-full flex flex-col justify-center px-10 md:px-16 lg:px-32">
           {/* Title Area */}
-          <div className="mb-12 animate-in slide-in-from-left-10 duration-700">
-            <h2 className="text-pink-500 font-bold tracking-[0.5em] text-sm mb-2 uppercase">
+          {/* PERUBAHAN: margin-bottom dikurangi untuk mobile */}
+          <div className="mb-8 md:mb-12 animate-in slide-in-from-left-10 duration-700">
+            {/* PERUBAHAN: text dan tracking diperkecil di mobile */}
+            <h2 className="text-pink-500 font-bold tracking-[0.3em] md:tracking-[0.5em] text-xs md:text-sm mb-1 md:mb-2 uppercase">
               A Fanmade Visual Novel
             </h2>
-            <h1 className="text-6xl lg:text-8xl font-black italic tracking-tighter text-white drop-shadow-[0_0_20px_rgba(236,72,153,0.5)]">
+            {/* PERUBAHAN: text-6xl jadi text-5xl di mobile, ditambahkan leading-none agar tidak menumpuk jaraknya */}
+            <h1 className="text-5xl md:text-6xl lg:text-8xl font-black italic tracking-tighter text-white drop-shadow-[0_0_20px_rgba(236,72,153,0.5)] leading-none">
               IDOLY PRIDE
               <br />
               <span className="text-transparent bg-clip-text bg-linear-to-r from-pink-400 to-blue-500">
@@ -166,41 +219,46 @@ const VisualNovel: React.FC = () => {
           </div>
 
           {/* Menu Buttons */}
-          <div className="flex flex-col gap-4 w-64 animate-in slide-in-from-left-10 duration-1000 delay-300">
+          {/* PERUBAHAN: gap dan lebar tombol (w-52) dikurangi untuk mobile */}
+          <div className="flex flex-col gap-3 md:gap-4 w-52 md:w-64 animate-in slide-in-from-left-10 duration-1000 delay-300">
             {[
               {
                 label: "New Game",
-                icon: <Play size={18} />,
+                icon: <Play className="w-4 h-4 md:w-4.5 md:h-4.5" />,
                 action: startGame,
               },
               {
                 label: "Load Game",
-                icon: <FolderOpen size={18} />,
+                icon: (
+                  <FolderOpen className="w-4 h-4 md:w-4.5 md:h-4.5" />
+                ),
                 action: () => setOverlay("load"),
               },
               {
                 label: "Options",
-                icon: <Settings size={18} />,
+                icon: <Settings className="w-4 h-4 md:w-4.5 md:h-4.5" />,
                 action: () => setOverlay("options"),
               },
               {
                 label: "Gallery",
-                icon: <ImageIcon size={18} />,
+                icon: <ImageIcon className="w-4 h-4 md:w-4.5 md:h-4.5" />,
                 action: () => setOverlay("gallery"),
               },
               {
                 label: "Credits",
-                icon: <Info size={18} />,
+                icon: <Info className="w-4 h-4 md:w-4.5 md:h-4.5" />,
                 action: () => setOverlay("credits"),
               },
             ].map((btn, idx) => (
               <button
                 key={idx}
                 onClick={btn.action}
-                className="group relative flex items-center gap-4 px-6 py-3 bg-white/5 border border-white/10 hover:border-pink-500 hover:bg-pink-500/10 transition-all duration-300 transform -skew-x-12"
+                // PERUBAHAN: padding dikurangi pada mobile (px-4 py-2.5)
+                className="group relative flex items-center gap-3 md:gap-4 px-4 py-2.5 md:px-6 md:py-3 bg-white/5 border border-white/10 hover:border-pink-500 hover:bg-pink-500/10 transition-all duration-300 transform -skew-x-12"
               >
                 <div className="absolute inset-0 w-1 bg-pink-500 -translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
-                <div className="transform skew-x-12 flex items-center gap-4 text-gray-300 group-hover:text-white font-bold tracking-widest uppercase">
+                {/* PERUBAHAN: ukuran font diubah ke text-xs untuk mobile, dan tracking sedikit direnggangkan */}
+                <div className="transform skew-x-12 flex items-center gap-3 md:gap-4 text-gray-300 group-hover:text-white font-bold tracking-wider md:tracking-widest text-xs md:text-base uppercase">
                   <span className="text-pink-500 group-hover:text-pink-400 transition-colors">
                     {btn.icon}
                   </span>
@@ -210,6 +268,23 @@ const VisualNovel: React.FC = () => {
             ))}
           </div>
         </div>
+
+        {/* FOOTER */}
+        <footer className="fixed bottom-0 left-0 right-0 z-50 bg-[#0f1115]/80 backdrop-blur-md border-t border-white/10 py-2">
+          <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-1">
+            <div className="text-center md:text-left">
+              <p className="text-[16px] md:text-[20px] text-gray-500 font-mono">
+                IPXSG PROJECT
+              </p>
+            </div>
+
+            <div className="text-center md:text-right">
+              <p className="text-[16px] md:text-[20px] text-gray-600 font-mono">
+                FAN-MADE • NOT AFFILIATED WITH QUALIARTS/CYBERAGENT
+              </p>
+            </div>
+          </div>
+        </footer>
       </div>
     );
   }
@@ -236,6 +311,7 @@ const VisualNovel: React.FC = () => {
       {renderOverlay()}
       {chapterData && (
         <InGameUI
+          key={gameSessionId}
           chapterData={chapterData}
           initialBlock={loadTarget.block}
           initialIndex={loadTarget.index}
@@ -250,6 +326,7 @@ const VisualNovel: React.FC = () => {
             setSavePosition({ block, index, text, bg, sprite, bgm });
             setOverlay(overlayType as any);
           }}
+          onChangeChapter={handleChangeChapter}
         />
       )}
     </div>

@@ -30,23 +30,26 @@ export interface AudioCommand {
 }
 
 export interface ScriptLine {
-  type: "dialogue" | "background" | "choice_selection";
+  type: "dialogue" | "background" | "choice_selection" | "change_chapter";
   speakerName?: string;
   text?: string;
   visuals?: Visuals;
   audio?: AudioCommand;
   choices?: ChoiceOption[];
   stateChanges?: StateChange[];
+  nextChapterUrl?: string;
 }
 
 export interface ChapterData {
   chapterId: string;
+  title?: string;
   blocks: Record<string, ScriptLine[]>;
 }
 export interface SaveSlotData {
   slotId: number;
   date: string;
   chapterUrl: string;
+  chapterTitle?: string;
   blockId: string;
   lineIndex: number;
   snippet: string;

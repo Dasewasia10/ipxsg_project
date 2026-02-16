@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { X, Save, FolderOpen } from "lucide-react";
+import { X, Save, FolderOpen, Trash2, AlertTriangle } from "lucide-react";
 import type { SaveSlotData } from "../types/script";
 import { useGameState } from "../store/useGameState";
 
 interface Props {
   mode: "save" | "load";
+  inGame: boolean; // Prop baru untuk mengecek apakah sedang main atau di main menu
   onClose: () => void;
   currentChapterUrl?: string;
+  currentChapterTitle?: string;
   currentBlock?: string;
   currentIndex?: number;
   currentText?: string;
@@ -20,8 +22,10 @@ const TOTAL_SLOTS = 10;
 
 const SaveLoadOverlay: React.FC<Props> = ({
   mode,
+  inGame,
   onClose,
   currentChapterUrl,
+  currentChapterTitle,
   currentBlock,
   currentIndex,
   currentText,
@@ -32,7 +36,12 @@ const SaveLoadOverlay: React.FC<Props> = ({
 }) => {
   const [saves, setSaves] = useState<Record<number, SaveSlotData | null>>({});
 
-  // Menarik data dari localStorage saat modal dibuka
+  // State untuk modal konfirmasi
+  const [confirmDialog, setConfirmDialog] = useState<{
+    action: "save" | "load" | "delete";
+    slot: number;
+  } | null>(null);
+
   useEffect(() => {
     const loadedSaves: Record<number, SaveSlotData | null> = {};
     for (let i = 1; i <= TOTAL_SLOTS; i++) {
@@ -42,54 +51,67 @@ const SaveLoadOverlay: React.FC<Props> = ({
     setSaves(loadedSaves);
   }, []);
 
-  const handleSave = (slotId: number) => {
-    if (
-      mode !== "save" ||
-      !currentChapterUrl ||
-      !currentBlock ||
-      currentIndex === undefined
-    )
+  const executeSave = (slotId: number) => {
+    if (!currentChapterUrl || !currentBlock || currentIndex === undefined)
       return;
-
     const newSave: SaveSlotData = {
       slotId,
       date: new Date().toLocaleString("id-ID"),
       chapterUrl: currentChapterUrl,
+      chapterTitle: currentChapterTitle || "Chapter Tanpa Judul",
       blockId: currentBlock,
       lineIndex: currentIndex,
       snippet: currentText
         ? currentText.substring(0, 45) + "..."
         : "Tidak ada dialog",
-      gameStateSnapshot: useGameState.getState(),
       savedBg: currentBg,
       savedSprite: currentSprite,
       savedBgm: currentBgm,
+      gameStateSnapshot: useGameState.getState(),
     };
-
     localStorage.setItem(`ipxsg_save_${slotId}`, JSON.stringify(newSave));
     setSaves((prev) => ({ ...prev, [slotId]: newSave }));
+    setConfirmDialog(null);
   };
 
-  const handleLoad = (slotId: number) => {
+  const executeLoad = (slotId: number) => {
     const data = saves[slotId];
-    if (data && mode === "load") {
-      onLoadGame(data);
+    if (data) onLoadGame(data);
+    setConfirmDialog(null);
+  };
+
+  const executeDelete = (slotId: number) => {
+    localStorage.removeItem(`ipxsg_save_${slotId}`);
+    setSaves((prev) => ({ ...prev, [slotId]: null }));
+    setConfirmDialog(null);
+  };
+
+  const handleSlotClick = (slotId: number) => {
+    const hasData = !!saves[slotId];
+    if (mode === "save") {
+      if (hasData)
+        setConfirmDialog({ action: "save", slot: slotId }); // Peringatan overwrite
+      else executeSave(slotId);
+    } else if (mode === "load" && hasData) {
+      if (inGame)
+        setConfirmDialog({ action: "load", slot: slotId }); // Peringatan unsaved saat in-game
+      else executeLoad(slotId);
     }
   };
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300 font-sans">
-      <div className="relative flex w-full max-w-4xl h-[80vh] flex-col bg-[#0f1115] border border-white/10 shadow-2xl">
+      <div className="relative flex w-full max-w-5xl h-[85vh] flex-col bg-[#0f1115] border border-white/10 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 bg-white/5 p-6">
           <h2 className="flex items-center gap-3 text-2xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-linear-to-r from-pink-400 to-purple-500">
             {mode === "save" ? (
               <>
-                <Save className="text-pink-400" /> Simpan Progress
+                <Save className="text-pink-400" /> Simpan Progres
               </>
             ) : (
               <>
-                <FolderOpen className="text-pink-400" /> Muat Progress
+                <FolderOpen className="text-pink-400" /> Muat Progres
               </>
             )}
           </h2>
@@ -102,43 +124,139 @@ const SaveLoadOverlay: React.FC<Props> = ({
         </div>
 
         {/* Daftar Slot Save */}
-        <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto p-6 md:grid-cols-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+        <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto p-6 lg:grid-cols-2 relative">
           {Array.from({ length: TOTAL_SLOTS }, (_, i) => i + 1).map((slot) => {
             const data = saves[slot];
             return (
-              <button
+              <div
                 key={slot}
-                onClick={() =>
-                  mode === "save" ? handleSave(slot) : handleLoad(slot)
-                }
-                disabled={mode === "load" && !data}
-                className={`relative flex flex-col gap-2 border p-4 text-left transition-all hover:scale-105 ${
-                  mode === "load" && !data
-                    ? "cursor-not-allowed border-white/5 bg-white/5 opacity-50"
-                    : "border-white/20 bg-[#151921] hover:border-pink-500 hover:bg-pink-500/10"
-                }`}
+                className="relative group flex items-stretch gap-4 border border-white/20 bg-[#151921] p-3 text-left transition-all hover:border-pink-500"
               >
-                <div className="flex justify-between border-b border-white/10 pb-2 text-xs font-bold uppercase tracking-wider text-pink-500">
-                  <span>Slot {String(slot).padStart(2, "0")}</span>
-                  {data && <span className="text-gray-400">{data.date}</span>}
-                </div>
+                <button
+                  onClick={() => handleSlotClick(slot)}
+                  disabled={mode === "load" && !data}
+                  className={`flex flex-1 items-stretch gap-4 text-left ${mode === "load" && !data ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                >
+                  <div className="relative flex w-32 shrink-0 flex-col justify-end overflow-hidden border border-white/10 bg-black">
+                    {data?.savedBg ? (
+                      <img
+                        src={data.savedBg}
+                        className="absolute inset-0 h-full w-full object-cover opacity-80"
+                        alt="bg"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-700">
+                        NO DATA
+                      </div>
+                    )}
+                    {data?.savedSprite && (
+                      <div className="absolute inset-0 flex items-end justify-center pointer-events-none">
+                        <img
+                          src={data.savedSprite}
+                          className="h-full object-contain translate-y-2"
+                          alt="sprite"
+                        />
+                      </div>
+                    )}
+                    {data && (
+                      <div
+                        className="relative z-10 w-full border-t border-white/20 bg-[#0f131a]/90 px-1.5 py-1 mt-auto min-h-6"
+                        style={{
+                          clipPath:
+                            "polygon(0 0, 100% 0, 100% 85%, 98% 100%, 0 100%)",
+                        }}
+                      >
+                        <p className="text-[2px] leading-tight text-gray-200 line-clamp-2">
+                          {data.snippet}
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
-                {data ? (
-                  <p className="mt-2 text-sm italic text-gray-200">
-                    "{data.snippet}"
-                  </p>
-                ) : (
-                  <p className="mt-2 py-4 text-center text-sm font-bold uppercase tracking-widest text-gray-600">
-                    Data Kosong
-                  </p>
+                  <div className="flex flex-1 flex-col py-1">
+                    <div className="flex justify-between border-b border-white/10 pb-1 text-[11px] font-bold uppercase tracking-wider text-pink-500">
+                      <span>Slot {String(slot).padStart(2, "0")}</span>
+                      {data && (
+                        <span className="text-gray-400">{data.date}</span>
+                      )}
+                    </div>
+                    {data ? (
+                      <div className="mt-2 flex-1">
+                        <p className="text-xs font-bold text-blue-300 line-clamp-1">
+                          {data.chapterTitle}
+                        </p>
+                        <p className="mt-1 text-xs italic text-gray-300 line-clamp-2">
+                          "{data.snippet}"
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex flex-1 items-center justify-center">
+                        <p className="text-xs font-bold uppercase tracking-widest text-gray-600">
+                          Data Kosong
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </button>
+
+                {/* Tombol Hapus */}
+                {data && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDialog({ action: "delete", slot });
+                    }}
+                    className="absolute right-2 bottom-2 p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/20 rounded z-10"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
       </div>
+
+      {/* Modal Konfirmasi Menimpa/Load/Hapus */}
+      {confirmDialog && (
+        <div className="absolute inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-[#151921] border border-white/20 p-6 shadow-2xl animate-in zoom-in-95">
+            <h3 className="flex items-center gap-2 text-lg font-bold uppercase text-yellow-400 mb-2">
+              <AlertTriangle size={20} /> Peringatan
+            </h3>
+            <p className="text-gray-300 text-sm mb-6">
+              {confirmDialog.action === "save" &&
+                "Slot ini sudah memiliki data. Apakah kamu ingin menimpanya?"}
+              {confirmDialog.action === "load" &&
+                "Progres saat ini yang belum di-save akan hilang. Lanjutkan load game?"}
+              {confirmDialog.action === "delete" &&
+                "Data pada slot ini akan dihapus permanen. Lanjutkan?"}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="px-4 py-2 text-xs font-bold uppercase text-gray-400 hover:text-white"
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => {
+                  if (confirmDialog.action === "save")
+                    executeSave(confirmDialog.slot);
+                  if (confirmDialog.action === "load")
+                    executeLoad(confirmDialog.slot);
+                  if (confirmDialog.action === "delete")
+                    executeDelete(confirmDialog.slot);
+                }}
+                className="px-4 py-2 text-xs font-bold uppercase bg-pink-600 hover:bg-pink-500 text-white rounded"
+              >
+                Ya, Lanjutkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
 export default SaveLoadOverlay;

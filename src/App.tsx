@@ -11,24 +11,6 @@ const MainLayout = () => {
       <div className="grow z-10 w-full">
         <Outlet />
       </div>
-
-      {/* FOOTER (Perbaikan Utama) */}
-      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-[#0f1115]/80 backdrop-blur-md border-t border-white/10 py-2">
-        <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-1">
-          <div className="text-center md:text-left">
-            <p className="text-[10px] text-gray-500 font-mono">
-              {/* © 2019 PROJECT IDOLY PRIDE */}
-              IPXSG PROJECT
-            </p>
-          </div>
-
-          <div className="text-center md:text-right">
-            <p className="text-[10px] text-gray-600 font-mono">
-              FAN-MADE • NOT AFFILIATED WITH QUALIARTS/CYBERAGENT
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };
