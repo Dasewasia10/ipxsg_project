@@ -8,6 +8,7 @@ import {
   History,
   Bug,
   Settings,
+  BookOpen,
 } from "lucide-react";
 import type {
   //   ScriptLine,
@@ -18,9 +19,13 @@ import type {
 } from "../types/script";
 import { useGameState } from "../store/useGameState";
 import { useSettingsStore } from "../store/useSettingsStore";
+import { useGlossaryStore } from "../store/useGlossaryStore";
 
 import LogOverlay from "./LogOverlay";
 import type { LogEntry } from "./LogOverlay";
+
+import { GLOSSARY_DB } from "../data/glossary";
+import TipsOverlay from "./TipsOverlay";
 
 interface Props {
   chapterData: ChapterData;
@@ -65,6 +70,7 @@ const InGameUI: React.FC<Props> = ({
 
   const [history, setHistory] = useState<LogEntry[]>([]);
   const [showLog, setShowLog] = useState(false);
+  const [showTips, setShowTips] = useState(false);
 
   const [showChoices, setShowChoices] = useState(false);
 
@@ -83,6 +89,11 @@ const InGameUI: React.FC<Props> = ({
 
   // --- STATE TITLE SHOWN
   const [showTitle, setShowTitle] = useState(false);
+
+  // --- STATE TIPS NOTIFICATION SHOWN
+  const [newTipNotification, setNewTipNotification] = useState<string | null>(
+    null,
+  );
 
   const typeIntervalRef = useRef<number | null>(null);
   const bgmRef = useRef<HTMLAudioElement | null>(null);
@@ -309,6 +320,30 @@ const InGameUI: React.FC<Props> = ({
         ];
       });
 
+      // ---> LOGIKA DETEKSI GLOSSARY BARU <---
+      const currentUnlocked = useGlossaryStore.getState().unlockedTips;
+      let newlyUnlocked: string | null = null;
+
+      Object.values(GLOSSARY_DB).forEach((term) => {
+        if (currentUnlocked.includes(term.id)) return; // Lewati jika sudah terbuka
+
+        const allWords = [term.title, ...term.alternatives];
+        const hasMatch = allWords.some(
+          (word) => new RegExp(`\\b${word}\\b`, "i").test(currentLine.text!), // Cari kata persis
+        );
+
+        if (hasMatch) {
+          useGlossaryStore.getState().unlockTip(term.id);
+          newlyUnlocked = term.title;
+        }
+      });
+
+      // Jika menemukan kata baru, munculkan toast notifikasi
+      if (newlyUnlocked) {
+        setNewTipNotification(newlyUnlocked);
+        setTimeout(() => setNewTipNotification(null), 4000); // Hilang dalam 4 detik
+      }
+
       setIsTyping(true);
       setDisplayedText("");
       let charIndex = 0;
@@ -357,6 +392,51 @@ const InGameUI: React.FC<Props> = ({
       if (typeIntervalRef.current) clearInterval(typeIntervalRef.current);
     };
   }, [currentIndex, currentBlock, isSkipping]);
+
+  // Fungsi untuk menyulap kata biasa menjadi Highlight Glossary
+  const renderTextWithGlossary = (text: string) => {
+    // Jika masih mengetik, kembalikan teks biasa agar typewriter tidak rusak
+    if (isTyping) return text;
+
+    let parsedElements: (string | React.JSX.Element)[] = [text];
+
+    const unlockedTips = useGlossaryStore.getState().unlockedTips;
+
+    // Cek hanya kata-kata yang sudah terbuka
+    unlockedTips.forEach((tipId) => {
+      const term = GLOSSARY_DB[tipId];
+      if (!term) return;
+
+      const wordsToHighlight = [term.title, ...term.alternatives];
+
+      wordsToHighlight.forEach((word) => {
+        // Gunakan regex untuk mencari kata secara spesifik (case-insensitive)
+        const regex = new RegExp(`(\\b${word}\\b)`, "gi");
+
+        parsedElements = parsedElements.flatMap((el, i) => {
+          if (typeof el !== "string") return el; // Abaikan yang sudah jadi JSX
+
+          const parts = el.split(regex);
+          return parts.map((part, j) => {
+            if (part.toLowerCase() === word.toLowerCase()) {
+              return (
+                <span
+                  key={`${i}-${j}`}
+                  // Hanya highlight kuning dengan garis bawah putus-putus
+                  className="text-yellow-400 border-b border-dashed border-yellow-400/50"
+                >
+                  {part}
+                </span>
+              );
+            }
+            return part;
+          });
+        });
+      });
+    });
+
+    return parsedElements;
+  };
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-black selection:bg-pink-500">
@@ -472,6 +552,14 @@ const InGameUI: React.FC<Props> = ({
               >
                 <History size={16} className="shrink-0" />
                 <span className="hidden sm:inline">Log</span>
+              </button>
+
+              <button
+                onClick={() => setShowTips(true)}
+                className="flex items-center justify-start gap-3 w-full rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 transition-all hover:bg-white/10 hover:text-white"
+              >
+                <BookOpen size={16} className="shrink-0" />
+                <span className="hidden sm:inline">Glossarium</span>
               </button>
 
               <button
@@ -592,7 +680,7 @@ const InGameUI: React.FC<Props> = ({
               <div className="absolute left-0 top-0 h-px w-full bg-linear-to-r from-transparent via-white/30 to-transparent"></div>
               <div className="relative z-10 h-full">
                 <p className="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-100 drop-shadow-md lg:text-xl">
-                  {displayedText}
+                  {renderTextWithGlossary(displayedText)}
                   {isTyping && (
                     <span className="ml-1 inline-block h-5 w-2 animate-pulse bg-pink-500 align-sub"></span>
                   )}
@@ -606,6 +694,8 @@ const InGameUI: React.FC<Props> = ({
       {showLog && (
         <LogOverlay history={history} onClose={() => setShowLog(false)} />
       )}
+
+      {showTips && <TipsOverlay onClose={() => setShowTips(false)} />}
 
       {/* Peringatan Quit ke Menu */}
       {showQuitConfirm && (
@@ -634,6 +724,21 @@ const InGameUI: React.FC<Props> = ({
           </div>
         </div>
       )}
+
+      {/* TOAST NOTIFIKASI TIPS BARU */}
+      <div
+        className={`absolute top-20 right-6 z-50 flex items-center gap-3 bg-black/80 backdrop-blur-md border border-yellow-500/30 px-4 py-3 shadow-2xl transition-all duration-500 ease-out transform ${newTipNotification ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}`}
+      >
+        <BookOpen className="text-yellow-400" size={20} />
+        <div className="flex flex-col">
+          <span className="text-gray-400 font-bold tracking-wider text-[8px] uppercase">
+            GLOSSARIUM Unlocked
+          </span>
+          <span className="text-sm font-bold uppercase tracking-widest text-yellow-400">
+            {newTipNotification}
+          </span>
+        </div>
+      </div>
     </div>
   );
 };

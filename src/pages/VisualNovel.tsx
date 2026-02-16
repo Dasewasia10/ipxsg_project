@@ -6,6 +6,7 @@ import {
   Settings,
   Image as ImageIcon,
   Info,
+  BookOpen,
 } from "lucide-react";
 import InGameUI from "../components/InGameUI";
 import SaveLoadOverlay from "../components/SaveLoadOverlay";
@@ -14,6 +15,7 @@ import CreditsOverlay from "../components/CreditsOverlay";
 import GalleryOverlay from "../components/GalleryOverlay";
 import type { SaveSlotData, ChapterData } from "../types/script";
 import { useGameState } from "../store/useGameState";
+import TipsOverlay from "../components/TipsOverlay";
 
 const CURRENT_CHAPTER_URL =
   "https://ipxsg-scripts-backend.vercel.app/scripts/ch01-prologue.json";
@@ -24,7 +26,7 @@ const VisualNovel: React.FC = () => {
     "menu",
   );
   const [overlay, setOverlay] = useState<
-    "none" | "save" | "load" | "options" | "gallery" | "credits"
+    "none" | "save" | "load" | "options" | "gallery" | "glossarium" | "credits"
   >("none");
 
   // --- STATE DATA CERITA ---
@@ -32,6 +34,9 @@ const VisualNovel: React.FC = () => {
 
   // --- STATE GAME SESSION ---
   const [gameSessionId, setGameSessionId] = useState(Date.now());
+
+  const [activeChapterUrl, setActiveChapterUrl] =
+    useState<string>(CURRENT_CHAPTER_URL);
 
   // State untuk melacak posisi save dari InGameUI
   const [savePosition, setSavePosition] = useState({
@@ -57,6 +62,7 @@ const VisualNovel: React.FC = () => {
     setAppState("loading");
     useGameState.getState().resetGame(); // Reset Global State kalau New Game!
     try {
+      setActiveChapterUrl(CURRENT_CHAPTER_URL);
       const response = await axios.get<ChapterData>(CURRENT_CHAPTER_URL);
       setChapterData(response.data);
       setLoadTarget({
@@ -82,6 +88,7 @@ const VisualNovel: React.FC = () => {
     useGameState.setState(saveData.gameStateSnapshot);
 
     try {
+      setActiveChapterUrl(saveData.chapterUrl);
       const response = await axios.get<ChapterData>(saveData.chapterUrl);
       setChapterData(response.data);
 
@@ -107,6 +114,7 @@ const VisualNovel: React.FC = () => {
   const handleChangeChapter = async (nextUrl: string) => {
     setAppState("loading");
     try {
+      setActiveChapterUrl(nextUrl);
       const response = await axios.get<ChapterData>(nextUrl);
       setChapterData(response.data);
 
@@ -141,7 +149,7 @@ const VisualNovel: React.FC = () => {
           inGame={appState === "playing"}
           onClose={() => setOverlay("none")}
           onLoadGame={loadGame}
-          currentChapterUrl={CURRENT_CHAPTER_URL}
+          currentChapterUrl={activeChapterUrl}
           currentChapterTitle={chapterData?.title || "Unknown Chapter"}
           currentBlock={savePosition.block}
           currentIndex={savePosition.index}
@@ -163,6 +171,10 @@ const VisualNovel: React.FC = () => {
 
     if (overlay === "credits") {
       return <CreditsOverlay onClose={() => setOverlay("none")} />;
+    }
+
+    if (overlay === "glossarium") {
+      return <TipsOverlay onClose={() => setOverlay("none")} />;
     }
 
     // Modal lain seperti Settings/Credits bisa dibuat komponen terpisah nanti
@@ -229,9 +241,7 @@ const VisualNovel: React.FC = () => {
               },
               {
                 label: "Load Game",
-                icon: (
-                  <FolderOpen className="w-4 h-4 md:w-4.5 md:h-4.5" />
-                ),
+                icon: <FolderOpen className="w-4 h-4 md:w-4.5 md:h-4.5" />,
                 action: () => setOverlay("load"),
               },
               {
@@ -243,6 +253,11 @@ const VisualNovel: React.FC = () => {
                 label: "Gallery",
                 icon: <ImageIcon className="w-4 h-4 md:w-4.5 md:h-4.5" />,
                 action: () => setOverlay("gallery"),
+              },
+              {
+                label: "Glossarium",
+                icon: <BookOpen className="w-4 h-4 md:w-4.5 md:h-4.5" />,
+                action: () => setOverlay("glossarium"),
               },
               {
                 label: "Credits",
