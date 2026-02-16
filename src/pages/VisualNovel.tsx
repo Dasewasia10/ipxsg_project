@@ -218,14 +218,13 @@ const VisualNovel: React.FC = () => {
           <div className="mb-8 md:mb-12 animate-in slide-in-from-left-10 duration-700">
             {/* PERUBAHAN: text dan tracking diperkecil di mobile */}
             <h2 className="text-pink-500 font-bold tracking-[0.3em] md:tracking-[0.5em] text-xs md:text-sm mb-1 md:mb-2 uppercase">
-              A Fanmade Visual Novel
+              A Fanmade Visual Novel (Pilot)
             </h2>
             {/* PERUBAHAN: text-6xl jadi text-5xl di mobile, ditambahkan leading-none agar tidak menumpuk jaraknya */}
             <h1 className="text-5xl md:text-6xl lg:text-8xl font-black italic tracking-tighter text-white drop-shadow-[0_0_20px_rgba(236,72,153,0.5)] leading-none">
-              IDOLY PRIDE
-              <br />
+              IPx
               <span className="text-transparent bg-clip-text bg-linear-to-r from-pink-400 to-blue-500">
-                STEINS;GATE&nbsp;
+                SG&nbsp;
               </span>
             </h1>
           </div>
