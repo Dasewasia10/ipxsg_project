@@ -32,7 +32,7 @@ export default function GalleryOverlay({ onClose }: { onClose: () => void }) {
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-400 transition-colors hover:text-white"
+              className="text-gray-400 transition-colors hover:text-white cursor-pointer"
             >
               <X size={28} />
             </button>
@@ -77,7 +77,7 @@ export default function GalleryOverlay({ onClose }: { onClose: () => void }) {
           className="fixed inset-0 z-150 bg-black/90 backdrop-blur-lg flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-200"
           onClick={() => setSelectedImage(null)}
         >
-          <button className="absolute top-6 right-6 text-white/70 hover:text-white bg-black/50 p-2 rounded-full">
+          <button className="absolute top-6 right-6 text-white/70 hover:text-white bg-black/50 p-2 rounded-full cursor-pointer">
             <X size={32} />
           </button>
           <img

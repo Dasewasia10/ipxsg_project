@@ -29,6 +29,8 @@ const getChapterUrl = (baseName: string, lang: "id" | "en") =>
 const START_CHAPTER_BASE = "ch01-prologue";
 
 const VisualNovel: React.FC = () => {
+  const [hasInteracted, setHasInteracted] = useState(false);
+
   // --- STATE HALAMAN ---
   const [appState, setAppState] = useState<"menu" | "loading" | "playing">(
     "menu",
@@ -55,37 +57,15 @@ const VisualNovel: React.FC = () => {
   const menuBgmRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    // Jika berada di Main Menu, putar musiknya
-    if (appState === "menu") {
-      if (!menuBgmRef.current) {
-        // GANTI URL DI BAWAH DENGAN LAGU MAIN MENU PILIHANMU
-        menuBgmRef.current = new Audio(
-          "https://api.dasewasia.my.id/bgm/shed-01.m4a",
-        );
-        menuBgmRef.current.loop = true;
-      }
-      menuBgmRef.current.volume = bgmVolume / 100;
+    const audio = new Audio("https://api.dasewasia.my.id/bgm/shed-01.m4a");
+    audio.loop = true;
+    menuBgmRef.current = audio;
 
-      // Menggunakan catch untuk mengatasi kebijakan larangan autoplay dari Browser
-      menuBgmRef.current
-        .play()
-        .catch((e) => console.warn("Browser mencegah autoplay:", e));
-    }
-    // Jika berpindah ke Loading atau Playing, matikan musiknya
-    else {
-      if (menuBgmRef.current) {
-        menuBgmRef.current.pause();
-        menuBgmRef.current.currentTime = 0; // Reset lagu kembali ke detik 0
-      }
-    }
-
-    // Membersihkan memori jika komponen ditutup
     return () => {
-      if (menuBgmRef.current) {
-        menuBgmRef.current.pause();
-      }
+      audio.pause();
+      menuBgmRef.current = null;
     };
-  }, [appState]);
+  }, []);
 
   // Efek tambahan agar volume lagu langsung mengecil/membesar jika diubah di menu Options
   useEffect(() => {
@@ -93,6 +73,26 @@ const VisualNovel: React.FC = () => {
       menuBgmRef.current.volume = bgmVolume / 100;
     }
   }, [bgmVolume]);
+
+  useEffect(() => {
+    const audio = menuBgmRef.current;
+    if (!audio || !hasInteracted) return;
+
+    if (appState === "menu") {
+      audio.play().catch((e) => console.error("Gagal putar audio:", e));
+    } else {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  }, [appState, hasInteracted]);
+
+  const handleStartGame = () => {
+    setHasInteracted(true);
+    // Jika posisi awal memang di menu, langsung putar
+    if (appState === "menu" && menuBgmRef.current) {
+      menuBgmRef.current.play();
+    }
+  };
 
   // Fungsi pembuat URL dinamis
   const buildChapterUrl = (chapterId: string, lang: string) => {
@@ -271,12 +271,46 @@ const VisualNovel: React.FC = () => {
     }
   };
 
+  const StartOverlay = ({ onStart }: { onStart: () => void }) => {
+    return (
+      <div
+        onClick={onStart} // Membuat seluruh layar bisa diklik untuk kenyamanan
+        className="fixed inset-0 z-200 flex items-center justify-center bg-[#0a0c10] backdrop-blur-sm font-sans cursor-pointer animate-in fade-in duration-500"
+      >
+        <div className="flex flex-col items-center gap-6">
+          {/* Teks Peringatan Sistem / Atmosfer */}
+          <div className="text-pink-500 font-bold tracking-[0.5em] text-[10px] md:text-xs uppercase text-center animate-pulse">
+            System Initialization
+          </div>
+
+          {/* Tombol Start Bergaya Main Menu */}
+          <button
+            onClick={onStart}
+            className="group relative flex items-center justify-center px-10 py-4 bg-white/5 border border-white/10 hover:border-pink-500 hover:bg-pink-500/10 transition-all duration-300 transform -skew-x-12 shadow-2xl cursor-pointer"
+          >
+            {/* Aksen Garis Kiri yang Muncul Saat Hover */}
+            <div className="absolute inset-0 z-20 w-1 bg-pink-500 -translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
+
+            {/* Teks Tombol (Skew dikembalikan agar teks tetap tegak) */}
+            <div className="transform skew-x-12 flex items-center gap-3 text-gray-300 group-hover:text-white font-bold tracking-[0.2em] md:tracking-widest uppercase text-sm md:text-base">
+              {t.overlays.startButton}
+            </div>
+          </button>
+
+          {/* Dekorasi Garis Bawah */}
+          <div className="h-px w-32 bg-linear-to-r from-transparent via-white/20 to-transparent mt-4"></div>
+        </div>
+      </div>
+    );
+  };
+
   // ==========================================
   // RENDER: MAIN MENU
   // ==========================================
   if (appState === "menu") {
     return (
       <div className="relative w-full h-screen bg-[#0a0c10] text-white overflow-hidden font-sans selection:bg-pink-500">
+        {!hasInteracted && <StartOverlay onStart={handleStartGame} />}
         {/* Background Main Menu */}
         <div
           className="absolute inset-0 bg-cover bg-center opacity-60 scale-105 animate-[pulse_10s_ease-in-out_infinite_alternate]"

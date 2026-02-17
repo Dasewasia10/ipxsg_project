@@ -24,6 +24,7 @@ export const UI_TEXT = {
       menu: "Menu",
     },
     overlays: {
+      startButton: "MULAI",
       currentChapter: "Chapter Sekarang",
       saveTitle: "Simpan Progres",
       loadTitle: "Muat Progres",
@@ -95,6 +96,7 @@ export const UI_TEXT = {
       menu: "Menu",
     },
     overlays: {
+      startButton: "START",
       currentChapter: "Current Chapter",
       saveTitle: "Save Progress",
       loadTitle: "Load Progress",

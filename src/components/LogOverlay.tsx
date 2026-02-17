@@ -37,7 +37,7 @@ export default function LogOverlay({ history, onClose }: Props) {
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 transition-colors hover:text-white"
+            className="text-gray-400 transition-colors hover:text-white cursor-pointer"
           >
             <X size={28} />
           </button>
