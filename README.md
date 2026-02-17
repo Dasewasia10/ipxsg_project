@@ -52,5 +52,5 @@ Sebuah proyek *fan-made* Visual Novel berbasis web yang mempertemukan pesona dun
 This project is a **strictly non-profit, non-commercial fan labor project** created purely for entertainment and portfolio purposes. 
 
 * **The Source Code (Engine):** The underlying Visual Novel engine code (React/TypeScript logic) written for this repository is open-sourced under the **MIT License**. You are free to study, modify, and use the code architecture for your own original projects.
-* **The Intellectual Property & Assets:** All character concepts, lore, original sprites, key visuals, and music belong entirely to their respective copyright holders (**QualiArts, Music Ray'n, and Straight Edge**). 
+* **The Intellectual Property & Assets:** All character concepts, lore, key designs, and music belong entirely to their respective copyright holders (**QualiArts, Music Ray'n, and Straight Edge**) Custom character sprites and UI elements were created specifically for this project.. 
 * **No Infringement Intended:** This project does not claim any ownership over the *Idoly Pride* properties. Please support the official releases of the franchise.
