@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, Save, FolderOpen, Trash2, AlertTriangle } from "lucide-react";
-import type { SaveSlotData } from "../types/script";
+import type { SaveSlotData, SpriteDef } from "../types/script";
 import { useGameState } from "../store/useGameState";
 
 import { useLanguageStore } from "../store/useLanguageStore";
@@ -17,7 +17,7 @@ interface Props {
   currentText?: string;
   onLoadGame: (saveData: SaveSlotData) => void;
   currentBg?: string | null;
-  currentSprite?: string | null;
+  currentSprites?: SpriteDef[];
   currentBgm?: string | null;
 }
 
@@ -35,7 +35,7 @@ const SaveLoadOverlay: React.FC<Props> = ({
   onLoadGame,
   currentBg,
   currentBgm,
-  currentSprite,
+  currentSprites,
 }) => {
   const [saves, setSaves] = useState<Record<number, SaveSlotData | null>>({});
 
@@ -71,7 +71,7 @@ const SaveLoadOverlay: React.FC<Props> = ({
         ? currentText.substring(0, 45) + "..."
         : "Tidak ada dialog",
       savedBg: currentBg,
-      savedSprite: currentSprite,
+      savedSprites: currentSprites,
       savedBgm: currentBgm,
       gameStateSnapshot: useGameState.getState(),
     };
@@ -155,13 +155,29 @@ const SaveLoadOverlay: React.FC<Props> = ({
                         NO DATA
                       </div>
                     )}
-                    {data?.savedSprite && (
-                      <div className="absolute inset-0 flex items-end justify-center pointer-events-none">
-                        <img
-                          src={data.savedSprite}
-                          className="h-full object-contain translate-y-2"
-                          alt="sprite"
-                        />
+                    {/* Render Multi-Sprite pada Thumbnail */}
+                    {data?.savedSprites && data.savedSprites.length > 0 && (
+                      <div className="absolute inset-0 z-0 flex items-end justify-center pointer-events-none overflow-hidden">
+                        {data.savedSprites.map((sprite, idx) => {
+                          let posClass = "";
+                          if (sprite.position === "left")
+                            posClass = "-translate-x-1/4";
+                          if (sprite.position === "right")
+                            posClass = "translate-x-1/4";
+                          if (sprite.position === "far-left")
+                            posClass = "-translate-x-1/2";
+                          if (sprite.position === "far-right")
+                            posClass = "translate-x-1/2";
+
+                          return (
+                            <img
+                              key={idx}
+                              src={sprite.url}
+                              className={`absolute bottom-0 w-auto max-w-none object-contain object-bottom drop-shadow-md transform translate-y-[10%] ${posClass} h-full translate-y-2`}
+                              alt="sprite"
+                            />
+                          );
+                        })}
                       </div>
                     )}
                     {data && (

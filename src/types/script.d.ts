@@ -12,14 +12,24 @@ export interface ChoiceCondition {
 
 export interface ChoiceOption {
   text: string;
-  nextBlock: string; // Melompat ke blok mana setelah dipilih
-  condition?: ChoiceCondition; // Syarat pilihan ini muncul (opsional)
-  stateChanges?: StateChange[]; // Efek setelah memilih (opsional)
+  nextBlock: string;
+  condition?: ChoiceCondition;
+  stateChanges?: StateChange[];
+}
+
+// ---> 1. STRUKTUR BARU UNTUK SPRITE <---
+export interface SpriteDef {
+  url: string;
+  position: "left" | "center" | "right" | "far-left" | "far-right";
+  animation?: "none" | "shake" | "bounce" | "fade-in"; // Efek animasi
 }
 
 export interface Visuals {
   background?: string;
-  sprite?: string; // Gunakan "none" untuk menghapus sprite karakter (karena Makino adalah POV)
+  sprites?: SpriteDef[] | "clear"; // Array sprite, atau "clear" untuk menghapus semua
+
+  // (Opsional) Tetap pertahankan yang lama sementara waktu agar JSON lamamu tidak error
+  sprite?: string;
   spritePosition?: "left" | "center" | "right";
 }
 
@@ -27,6 +37,7 @@ export interface AudioCommand {
   bgm?: string;
   bgmAction?: "play" | "stop";
   sfx?: string;
+  sfxDelay?: number; // ---> Waktu tunggu sebelum SFX berbunyi (ms) <---
 }
 
 export interface ScriptLine {
@@ -38,6 +49,10 @@ export interface ScriptLine {
   choices?: ChoiceOption[];
   stateChanges?: StateChange[];
   nextChapterId?: string;
+
+  // ---> 2. FITUR MANIPULASI DIALOG BARU <---
+  forceTextSpeed?: number; // Memaksa kecepatan ketikan (contoh: 100 lambat, 10 cepat)
+  autoDelay?: number; // Waktu jeda khusus sebelum lanjut di mode auto (ms)
 }
 
 export interface ChapterData {
@@ -45,6 +60,7 @@ export interface ChapterData {
   title?: string;
   blocks: Record<string, ScriptLine[]>;
 }
+
 export interface SaveSlotData {
   slotId: number;
   date: string;
@@ -55,6 +71,6 @@ export interface SaveSlotData {
   snippet: string;
   gameStateSnapshot: any;
   savedBg?: string | null;
-  savedSprite?: string | null;
+  savedSprites?: SpriteDef[]; // Perbarui save data untuk menampung banyak sprite
   savedBgm?: string | null;
 }

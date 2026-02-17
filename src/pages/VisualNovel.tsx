@@ -13,7 +13,7 @@ import SaveLoadOverlay from "../components/SaveLoadOverlay";
 import SettingsOverlay from "../components/SettingsOverlay";
 import CreditsOverlay from "../components/CreditsOverlay";
 import GalleryOverlay from "../components/GalleryOverlay";
-import type { SaveSlotData, ChapterData } from "../types/script";
+import type { SpriteDef, SaveSlotData, ChapterData } from "../types/script";
 import { useGameState } from "../store/useGameState";
 import TipsOverlay from "../components/TipsOverlay";
 
@@ -105,7 +105,7 @@ const VisualNovel: React.FC = () => {
     index: 0,
     text: "",
     bg: null as string | null,
-    sprite: null as string | null,
+    sprites: [] as SpriteDef[],
     bgm: null as string | null,
   });
 
@@ -114,7 +114,7 @@ const VisualNovel: React.FC = () => {
     block: "start",
     index: 0,
     bg: null as string | null,
-    sprite: null as string | null,
+    sprites: [] as SpriteDef[],
     bgm: null as string | null,
   });
 
@@ -133,7 +133,7 @@ const VisualNovel: React.FC = () => {
         block: "start",
         index: 0,
         bg: null,
-        sprite: null,
+        sprites: [],
         bgm: null,
       });
 
@@ -161,7 +161,7 @@ const VisualNovel: React.FC = () => {
         block: saveData.blockId,
         index: saveData.lineIndex,
         bg: saveData.savedBg || null,
-        sprite: saveData.savedSprite || null,
+        sprites: saveData.savedSprites || [],
         bgm: saveData.savedBgm || null,
       });
 
@@ -190,7 +190,7 @@ const VisualNovel: React.FC = () => {
         block: "start",
         index: 0,
         bg: null,
-        sprite: null,
+        sprites: [],
         bgm: null,
       });
       setGameSessionId(Date.now());
@@ -248,7 +248,7 @@ const VisualNovel: React.FC = () => {
           currentIndex={savePosition.index}
           currentText={savePosition.text}
           currentBg={savePosition.bg}
-          currentSprite={savePosition.sprite}
+          currentSprites={savePosition.sprites}
           currentBgm={savePosition.bgm}
         />
       );
@@ -442,14 +442,22 @@ const VisualNovel: React.FC = () => {
           initialBlock={loadTarget.block}
           initialIndex={loadTarget.index}
           initialBg={loadTarget.bg}
-          initialSprite={loadTarget.sprite}
+          initialSprites={loadTarget.sprites}
           initialBgm={loadTarget.bgm}
           onQuit={() => {
             setAppState("menu");
             setChapterData(null);
           }}
-          onOpenOverlay={(overlayType, block, index, text, bg, sprite, bgm) => {
-            setSavePosition({ block, index, text, bg, sprite, bgm });
+          onOpenOverlay={(
+            overlayType,
+            block,
+            index,
+            text,
+            bg,
+            sprites,
+            bgm,
+          ) => {
+            setSavePosition({ block, index, text, bg, sprites, bgm });
             setOverlay(overlayType as any);
           }}
           onChangeChapter={handleChangeChapter}

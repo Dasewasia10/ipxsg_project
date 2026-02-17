@@ -11,7 +11,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import type {
-  //   ScriptLine,
+  SpriteDef,
   ChapterData,
   StateChange,
   ChoiceCondition,
@@ -35,7 +35,7 @@ interface Props {
   initialBlock?: string;
   initialIndex?: number;
   initialBg?: string | null;
-  initialSprite?: string | null;
+  initialSprites?: SpriteDef[];
   initialBgm?: string | null;
   onQuit: () => void;
   // Prop fungsi ini sekarang mengirimkan data visual yang sedang aktif juga
@@ -45,7 +45,7 @@ interface Props {
     index: number,
     text: string,
     bg: string | null,
-    sprite: string | null,
+    sprites: SpriteDef[],
     bgm: string | null,
   ) => void;
   onChangeChapter: (url: string) => void;
@@ -56,7 +56,7 @@ const InGameUI: React.FC<Props> = ({
   initialBlock = "start",
   initialIndex = 0,
   initialBg = null,
-  initialSprite = null,
+  initialSprites = [],
   initialBgm = null,
   onQuit,
   onOpenOverlay,
@@ -79,9 +79,9 @@ const InGameUI: React.FC<Props> = ({
 
   // STATE VISUAL & AUDIO (Diisi dengan initial data dari Save Game)
   const [currentBg, setCurrentBg] = useState<string | null>(initialBg);
-  const [currentSprite, setCurrentSprite] = useState<string | null>(
-    initialSprite,
-  );
+  const [prevBg, setPrevBg] = useState<string | null>(null);
+  const [activeSprites, setActiveSprites] =
+    useState<SpriteDef[]>(initialSprites);
   const [currentBgmUrl, setCurrentBgmUrl] = useState<string | null>(initialBgm);
 
   // --- STATE SETTINGS ---
@@ -239,13 +239,10 @@ const InGameUI: React.FC<Props> = ({
   useEffect(() => {
     let autoTimer: number;
 
-    // Jika sedang tidak mengetik, mode Auto nyala, dan BUKAN sedang di layar pilihan
     if (!isTyping && isAutoPlay && currentLine?.type !== "choice_selection") {
-      // Waktu tunggu (delay) sebelum lanjut.
-      // Bisa dibuat dinamis berdasarkan panjang teks, tapi 1500ms adalah standar yang nyaman.
-      autoTimer = window.setTimeout(() => {
-        advance();
-      }, 1500);
+      // Prioritaskan autoDelay dari skrip, jika tidak ada gunakan default 1500ms
+      const delay = currentLine?.autoDelay || 1500;
+      autoTimer = window.setTimeout(() => advance(), delay);
     }
 
     return () => clearTimeout(autoTimer);
@@ -266,11 +263,14 @@ const InGameUI: React.FC<Props> = ({
     executeStateChanges(currentLine.stateChanges);
 
     // 2. Proses Visual (Update Background & Sprite)
-    if (currentLine.visuals?.background) {
-      setCurrentBg(currentLine.visuals.background);
+    // --- 1. PROSES VISUAL (TRANSISI HALUS & MULTI-SPRITE) ---
+    if (
+      currentLine.visuals?.background &&
+      currentLine.visuals.background !== currentBg
+    ) {
+      setPrevBg(currentBg); // Simpan BG lama
+      setCurrentBg(currentLine.visuals.background); // Tampilkan BG baru (akan memicu crossfade)
 
-      // ---> LOGIKA UNLOCK CG <---
-      // Jika background adalah gambar dari folder /cg/, simpan ke localStorage
       if (currentLine.visuals.background.includes("/cg/")) {
         const savedCgs = localStorage.getItem("ipxsg_unlocked_cgs");
         const cgsArray: string[] = savedCgs ? JSON.parse(savedCgs) : [];
@@ -280,12 +280,26 @@ const InGameUI: React.FC<Props> = ({
         }
       }
     }
-    if (currentLine.visuals?.sprite !== undefined) {
-      setCurrentSprite(
-        currentLine.visuals.sprite === "none"
-          ? null
-          : currentLine.visuals.sprite,
-      );
+
+    // Proses Multi-Sprites
+    if (currentLine.visuals?.sprites === "clear") {
+      setActiveSprites([]);
+    } else if (currentLine.visuals?.sprites) {
+      setActiveSprites(currentLine.visuals.sprites);
+    }
+    // Fallback untuk JSON skrip lama yang masih pakai 'sprite' tunggal
+    else if (currentLine.visuals?.sprite) {
+      if (currentLine.visuals.sprite === "none") {
+        setActiveSprites([]);
+      } else {
+        setActiveSprites([
+          {
+            url: currentLine.visuals.sprite,
+            position: currentLine.visuals.spritePosition || "center",
+            animation: "fade-in",
+          },
+        ]);
+      }
     }
 
     if (currentLine.audio) {
@@ -302,6 +316,21 @@ const InGameUI: React.FC<Props> = ({
         bgmRef.current.loop = true;
         bgmRef.current.volume = bgmVolume / 100;
         bgmRef.current.play().catch((e) => console.warn(e));
+      }
+
+      // Logika SFX dengan Delay
+      if (currentLine.audio.sfx) {
+        const playSfx = () => {
+          const sfxAudio = new Audio(currentLine.audio!.sfx);
+          sfxAudio.volume = useSettingsStore.getState().sfxVolume / 100; // Sambungkan ke pengaturan SFX
+          sfxAudio.play().catch((e) => console.warn(e));
+        };
+
+        if (currentLine.audio.sfxDelay) {
+          setTimeout(playSfx, currentLine.audio.sfxDelay);
+        } else {
+          playSfx();
+        }
       }
     }
 
@@ -373,6 +402,8 @@ const InGameUI: React.FC<Props> = ({
         }
       }
 
+      const speedToUse = currentLine.forceTextSpeed || textSpeed;
+
       typeIntervalRef.current = window.setInterval(() => {
         charIndex++;
         setDisplayedText(fullText.slice(0, charIndex));
@@ -390,7 +421,7 @@ const InGameUI: React.FC<Props> = ({
             setIsAutoPlay(false);
           }
         }
-      }, textSpeed);
+      }, speedToUse);
     } else {
       setIsTyping(false);
       setDisplayedText("");
@@ -466,21 +497,50 @@ const InGameUI: React.FC<Props> = ({
         </div>
       </div>
 
+      {/* BACKGROUND LAMA (Untuk Efek Crossfade) */}
+      {prevBg && (
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url('${prevBg}')` }}
+        />
+      )}
+
+      {/* BACKGROUND BARU (Fade-in di atas BG Lama) */}
       {currentBg && (
         <div
-          className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out"
+          key={currentBg} // Key memaksa elemen di-render ulang untuk memicu animasi
+          className="absolute inset-0 bg-cover bg-center animate-in fade-in duration-1000 ease-in-out"
           style={{ backgroundImage: `url('${currentBg}')` }}
         />
       )}
-      {currentSprite && (
-        <div className="absolute inset-0 z-10 flex items-end justify-center pointer-events-none">
-          <img
-            src={currentSprite}
-            className="h-[80%] object-contain drop-shadow-2xl animate-in fade-in duration-500 lg:h-[90%]"
-            alt="Sprite"
-          />
-        </div>
-      )}
+      {/* MULTIPLE SPRITES RENDERER */}
+      <div className="absolute inset-0 z-10 flex items-end justify-center pointer-events-none">
+        {activeSprites.map((sprite, idx) => {
+          // Konversi Posisi ke CSS Tailwind
+          let positionClass = "";
+          if (sprite.position === "left") positionClass = "-translate-x-1/2";
+          if (sprite.position === "right") positionClass = "translate-x-1/2";
+          if (sprite.position === "far-left")
+            positionClass = "-translate-x-3/4";
+          if (sprite.position === "far-right")
+            positionClass = "translate-x-3/4";
+
+          // Konversi Animasi
+          let animClass = "animate-in fade-in duration-500"; // default
+          if (sprite.animation === "shake") animClass = "animate-shake";
+          if (sprite.animation === "bounce") animClass = "animate-bounce";
+          if (sprite.animation === "none") animClass = "";
+
+          return (
+            <img
+              key={`${sprite.url}-${idx}`}
+              src={sprite.url}
+              className={`absolute bottom-0 h-[80%] lg:h-[90%] object-contain drop-shadow-2xl ${positionClass} ${animClass}`}
+              alt="Character Sprite"
+            />
+          );
+        })}
+      </div>
 
       {currentLine?.type === "choice_selection" && !isTyping && showChoices && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/40 px-4 backdrop-blur-none">
@@ -606,7 +666,7 @@ const InGameUI: React.FC<Props> = ({
                     currentIndex,
                     displayedText,
                     currentBg,
-                    currentSprite,
+                    activeSprites,
                     currentBgmUrl,
                   );
                 }}
@@ -626,7 +686,7 @@ const InGameUI: React.FC<Props> = ({
                     currentIndex,
                     displayedText,
                     currentBg,
-                    currentSprite,
+                    activeSprites,
                     currentBgmUrl,
                   );
                 }}
@@ -646,7 +706,7 @@ const InGameUI: React.FC<Props> = ({
                     currentIndex,
                     displayedText,
                     currentBg,
-                    currentSprite,
+                    activeSprites,
                     currentBgmUrl,
                   );
                 }}
