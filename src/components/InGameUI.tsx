@@ -698,6 +698,11 @@ const InGameUI: React.FC<Props> = ({
                   )}
                 </p>
               </div>
+              {!isTyping && (
+                <div className="absolute bottom-4 right-8 animate-bounce text-pink-500">
+                  <div className="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-12 border-t-pink-500"></div>
+                </div>
+              )}
             </div>
           </div>
         </div>
