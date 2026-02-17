@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 import { X, History } from "lucide-react";
 
+import { useLanguageStore } from "../store/useLanguageStore";
+import { UI_TEXT } from "../data/uiTranslations";
+
 export interface LogEntry {
   block: string;
   index: number;
@@ -16,6 +19,9 @@ interface Props {
 export default function LogOverlay({ history, onClose }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
 
+  const { language } = useLanguageStore();
+  const t = UI_TEXT[language];
+
   // Gulir otomatis ke bagian paling bawah (teks terbaru) saat log dibuka
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "instant" });
@@ -27,7 +33,7 @@ export default function LogOverlay({ history, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 bg-white/5 p-6">
           <h2 className="flex items-center gap-3 text-2xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-linear-to-r from-pink-400 to-blue-500">
-            <History className="text-pink-400" /> Log Dialog
+            <History className="text-pink-400" /> {t.overlays.logTitle}
           </h2>
           <button
             onClick={onClose}
@@ -41,7 +47,7 @@ export default function LogOverlay({ history, onClose }: Props) {
         <div className="flex-1 overflow-y-auto p-6 lg:p-10 space-y-6 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
           {history.length === 0 ? (
             <p className="text-center text-gray-500 font-bold uppercase tracking-widest mt-10">
-              Belum ada riwayat dialog.
+              {t.overlays.logHistory}
             </p>
           ) : (
             history.map((entry, i) => (

@@ -1,9 +1,15 @@
 import { useState, useEffect } from "react";
 import { X, Image as ImageIcon, Lock } from "lucide-react";
 
+import { useLanguageStore } from "../store/useLanguageStore";
+import { UI_TEXT } from "../data/uiTranslations";
+
 export default function GalleryOverlay({ onClose }: { onClose: () => void }) {
   const [unlockedCGs, setUnlockedCGs] = useState<string[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null); // STATE BARU
+
+  const { language } = useLanguageStore();
+  const t = UI_TEXT[language];
 
   useEffect(() => {
     const saved = localStorage.getItem("ipxsg_unlocked_cgs");
@@ -22,7 +28,7 @@ export default function GalleryOverlay({ onClose }: { onClose: () => void }) {
         <div className="relative flex w-full max-w-5xl h-[85vh] flex-col bg-[#0f1115] border border-white/10 shadow-2xl">
           <div className="flex items-center justify-between border-b border-white/10 bg-white/5 p-6">
             <h2 className="flex items-center gap-3 text-2xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-linear-to-r from-pink-400 to-purple-500">
-              <ImageIcon className="text-pink-400" /> Galeri CG
+              <ImageIcon className="text-pink-400" /> {t.overlays.galleryTitle}
             </h2>
             <button
               onClick={onClose}

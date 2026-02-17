@@ -1,5 +1,7 @@
-import { X, Settings, Volume2, Type } from "lucide-react";
+import { X, Settings, Volume2, Type, Globe } from "lucide-react";
 import { useSettingsStore } from "../store/useSettingsStore";
+import { useLanguageStore } from "../store/useLanguageStore";
+import { UI_TEXT } from "../data/uiTranslations";
 
 export default function SettingsOverlay({ onClose }: { onClose: () => void }) {
   // Ambil state dan fungsi dari Zustand
@@ -12,12 +14,15 @@ export default function SettingsOverlay({ onClose }: { onClose: () => void }) {
     setTextSpeed,
   } = useSettingsStore();
 
+  const { language, setLanguage } = useLanguageStore();
+  const t = UI_TEXT[language];
+
   return (
     <div className="absolute inset-0 z-100 flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300 font-sans">
       <div className="relative flex w-full max-w-2xl flex-col bg-[#0f1115] border border-white/10 shadow-2xl">
         <div className="flex items-center justify-between border-b border-white/10 bg-white/5 p-6">
           <h2 className="flex items-center gap-3 text-2xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-linear-to-r from-pink-400 to-purple-500">
-            <Settings className="text-pink-400" /> Pengaturan
+            <Settings className="text-pink-400" /> {t.settings.title}
           </h2>
           <button
             onClick={onClose}
@@ -31,12 +36,12 @@ export default function SettingsOverlay({ onClose }: { onClose: () => void }) {
           {/* Audio */}
           <div className="space-y-4">
             <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-pink-500 border-b border-white/10 pb-2">
-              <Volume2 size={16} /> Audio
+              <Volume2 size={16} /> {t.settings.audio}
             </h3>
 
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-gray-400 uppercase font-bold">
-                <span>Background Music (BGM)</span>
+                <span>{t.settings.bgm} (BGM)</span>
                 <span>{bgmVolume}%</span>
               </div>
               <input
@@ -51,7 +56,7 @@ export default function SettingsOverlay({ onClose }: { onClose: () => void }) {
 
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-gray-400 uppercase font-bold">
-                <span>Sound Effects (SFX)</span>
+                <span>{t.settings.sfx} (SFX)</span>
                 <span>{sfxVolume}%</span>
               </div>
               <input
@@ -68,11 +73,11 @@ export default function SettingsOverlay({ onClose }: { onClose: () => void }) {
           {/* Gameplay */}
           <div className="space-y-4">
             <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-pink-500 border-b border-white/10 pb-2">
-              <Type size={16} /> Gameplay
+              <Type size={16} /> {t.settings.gameplay}
             </h3>
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-gray-400 uppercase font-bold">
-                <span>Kecepatan Teks</span>
+                <span>{t.settings.textSpeed}</span>
                 <span>{textSpeed}ms</span>
               </div>
               <input
@@ -84,8 +89,30 @@ export default function SettingsOverlay({ onClose }: { onClose: () => void }) {
                 className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-pink-500 flex-row-reverse"
               />
               <p className="text-[10px] text-gray-500">
-                Semakin kecil angkanya, semakin cepat teks muncul.
+                {t.settings.textSpeedDesc}
               </p>
+            </div>
+            {/* Tombol Bahasa */}
+            <div className="space-y-3 pt-4 border-t border-white/10">
+              <div className="flex justify-between text-xs text-gray-400 uppercase font-bold">
+                <span className="flex items-center gap-2">
+                  <Globe size={14} /> {t.settings.language}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setLanguage("id")}
+                  className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${language === "id" ? "bg-pink-600 text-white" : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"}`}
+                >
+                  Indonesia
+                </button>
+                <button
+                  onClick={() => setLanguage("en")}
+                  className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${language === "en" ? "bg-pink-600 text-white" : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"}`}
+                >
+                  English
+                </button>
+              </div>
             </div>
           </div>
         </div>

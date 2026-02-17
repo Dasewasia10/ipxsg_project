@@ -3,6 +3,9 @@ import { X, Save, FolderOpen, Trash2, AlertTriangle } from "lucide-react";
 import type { SaveSlotData } from "../types/script";
 import { useGameState } from "../store/useGameState";
 
+import { useLanguageStore } from "../store/useLanguageStore";
+import { UI_TEXT } from "../data/uiTranslations";
+
 interface Props {
   mode: "save" | "load";
   inGame: boolean; // Prop baru untuk mengecek apakah sedang main atau di main menu
@@ -41,6 +44,9 @@ const SaveLoadOverlay: React.FC<Props> = ({
     action: "save" | "load" | "delete";
     slot: number;
   } | null>(null);
+
+  const { language } = useLanguageStore();
+  const t = UI_TEXT[language];
 
   useEffect(() => {
     const loadedSaves: Record<number, SaveSlotData | null> = {};
@@ -107,11 +113,11 @@ const SaveLoadOverlay: React.FC<Props> = ({
           <h2 className="flex items-center gap-3 text-2xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-linear-to-r from-pink-400 to-purple-500">
             {mode === "save" ? (
               <>
-                <Save className="text-pink-400" /> Simpan Progres
+                <Save className="text-pink-400" /> {t.overlays.saveTitle}
               </>
             ) : (
               <>
-                <FolderOpen className="text-pink-400" /> Muat Progres
+                <FolderOpen className="text-pink-400" /> {t.overlays.loadTitle}
               </>
             )}
           </h2>
@@ -192,7 +198,7 @@ const SaveLoadOverlay: React.FC<Props> = ({
                     ) : (
                       <div className="mt-2 flex flex-1 items-center justify-center">
                         <p className="text-xs font-bold uppercase tracking-widest text-gray-600">
-                          Data Kosong
+                          {t.overlays.emptySlot}
                         </p>
                       </div>
                     )}
@@ -222,22 +228,19 @@ const SaveLoadOverlay: React.FC<Props> = ({
         <div className="absolute inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-sm bg-[#151921] border border-white/20 p-6 shadow-2xl animate-in zoom-in-95">
             <h3 className="flex items-center gap-2 text-lg font-bold uppercase text-yellow-400 mb-2">
-              <AlertTriangle size={20} /> Peringatan
+              <AlertTriangle size={20} /> {t.overlays.saveloadWarning}
             </h3>
             <p className="text-gray-300 text-sm mb-6">
-              {confirmDialog.action === "save" &&
-                "Slot ini sudah memiliki data. Apakah kamu ingin menimpanya?"}
-              {confirmDialog.action === "load" &&
-                "Progres saat ini yang belum di-save akan hilang. Lanjutkan load game?"}
-              {confirmDialog.action === "delete" &&
-                "Data pada slot ini akan dihapus permanen. Lanjutkan?"}
+              {confirmDialog.action === "save" && t.overlays.overwriteWarning}
+              {confirmDialog.action === "load" && t.overlays.unsavedWarning}
+              {confirmDialog.action === "delete" && t.overlays.deleteWarning}
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setConfirmDialog(null)}
                 className="px-4 py-2 text-xs font-bold uppercase text-gray-400 hover:text-white"
               >
-                Batal
+                {t.overlays.no}
               </button>
               <button
                 onClick={() => {
@@ -250,7 +253,7 @@ const SaveLoadOverlay: React.FC<Props> = ({
                 }}
                 className="px-4 py-2 text-xs font-bold uppercase bg-pink-600 hover:bg-pink-500 text-white rounded"
               >
-                Ya, Lanjutkan
+                {t.overlays.yesContinue}
               </button>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import {
   Play,
@@ -17,8 +17,16 @@ import type { SaveSlotData, ChapterData } from "../types/script";
 import { useGameState } from "../store/useGameState";
 import TipsOverlay from "../components/TipsOverlay";
 
-const CURRENT_CHAPTER_URL =
-  "https://ipxsg-scripts-backend.vercel.app/scripts/ch01-prologue.json";
+import { useLanguageStore } from "../store/useLanguageStore";
+import { UI_TEXT } from "../data/uiTranslations";
+
+import { useSettingsStore } from "../store/useSettingsStore";
+
+const getChapterUrl = (baseName: string, lang: "id" | "en") =>
+  `https://ipxsg-scripts-backend.vercel.app/scripts/${baseName}-${lang}.json`;
+
+// Default chapter name (tanpa -id/-en)
+const START_CHAPTER_BASE = "ch01-prologue";
 
 const VisualNovel: React.FC = () => {
   // --- STATE HALAMAN ---
@@ -35,8 +43,61 @@ const VisualNovel: React.FC = () => {
   // --- STATE GAME SESSION ---
   const [gameSessionId, setGameSessionId] = useState(Date.now());
 
-  const [activeChapterUrl, setActiveChapterUrl] =
-    useState<string>(CURRENT_CHAPTER_URL);
+  const { language } = useLanguageStore();
+  const t = UI_TEXT[language];
+
+  const [activeChapterUrl, setActiveChapterUrl] = useState<string>(
+    getChapterUrl(START_CHAPTER_BASE, language),
+  );
+
+  // ---> TAMBAHKAN KODE BGM MAIN MENU DI SINI <---
+  const { bgmVolume } = useSettingsStore();
+  const menuBgmRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    // Jika berada di Main Menu, putar musiknya
+    if (appState === "menu") {
+      if (!menuBgmRef.current) {
+        // GANTI URL DI BAWAH DENGAN LAGU MAIN MENU PILIHANMU
+        menuBgmRef.current = new Audio(
+          "https://api.dasewasia.my.id/bgm/shed-01.m4a",
+        );
+        menuBgmRef.current.loop = true;
+      }
+      menuBgmRef.current.volume = bgmVolume / 100;
+
+      // Menggunakan catch untuk mengatasi kebijakan larangan autoplay dari Browser
+      menuBgmRef.current
+        .play()
+        .catch((e) => console.warn("Browser mencegah autoplay:", e));
+    }
+    // Jika berpindah ke Loading atau Playing, matikan musiknya
+    else {
+      if (menuBgmRef.current) {
+        menuBgmRef.current.pause();
+        menuBgmRef.current.currentTime = 0; // Reset lagu kembali ke detik 0
+      }
+    }
+
+    // Membersihkan memori jika komponen ditutup
+    return () => {
+      if (menuBgmRef.current) {
+        menuBgmRef.current.pause();
+      }
+    };
+  }, [appState]);
+
+  // Efek tambahan agar volume lagu langsung mengecil/membesar jika diubah di menu Options
+  useEffect(() => {
+    if (menuBgmRef.current) {
+      menuBgmRef.current.volume = bgmVolume / 100;
+    }
+  }, [bgmVolume]);
+
+  // Fungsi pembuat URL dinamis
+  const buildChapterUrl = (chapterId: string, lang: string) => {
+    return `https://ipxsg-scripts-backend.vercel.app/scripts/${chapterId}-${lang}.json`;
+  };
 
   // State untuk melacak posisi save dari InGameUI
   const [savePosition, setSavePosition] = useState({
@@ -61,9 +122,12 @@ const VisualNovel: React.FC = () => {
   const startGame = async () => {
     setAppState("loading");
     useGameState.getState().resetGame(); // Reset Global State kalau New Game!
+
+    const url = getChapterUrl(START_CHAPTER_BASE, language);
+
     try {
-      setActiveChapterUrl(CURRENT_CHAPTER_URL);
-      const response = await axios.get<ChapterData>(CURRENT_CHAPTER_URL);
+      setActiveChapterUrl(url);
+      const response = await axios.get<ChapterData>(url);
       setChapterData(response.data);
       setLoadTarget({
         block: "start",
@@ -111,14 +175,17 @@ const VisualNovel: React.FC = () => {
   };
 
   // FUNGSI GANTI CHAPTER
-  const handleChangeChapter = async (nextUrl: string) => {
+  const handleChangeChapter = async (chapterId: string) => {
     setAppState("loading");
+
+    // Rakit URL-nya di sini!
+    const nextUrl = buildChapterUrl(chapterId, language);
+
     try {
       setActiveChapterUrl(nextUrl);
       const response = await axios.get<ChapterData>(nextUrl);
       setChapterData(response.data);
 
-      // Reset kordinat load target layaknya New Game
       setLoadTarget({
         block: "start",
         index: 0,
@@ -126,7 +193,6 @@ const VisualNovel: React.FC = () => {
         sprite: null,
         bgm: null,
       });
-
       setGameSessionId(Date.now());
       setAppState("playing");
       setOverlay("none");
@@ -136,6 +202,33 @@ const VisualNovel: React.FC = () => {
       setAppState("menu");
     }
   };
+
+  // ==========================================
+  // EFEK HOT-SWAP BAHASA CERITA
+  // ==========================================
+  useEffect(() => {
+    // Jika game sedang berjalan dan URL aktif tersedia
+    if (appState === "playing" && activeChapterUrl) {
+      // Ganti akhiran URL dengan bahasa yang baru dipilih (-id.json atau -en.json)
+      const newUrl = activeChapterUrl.replace(
+        /-id\.json|-en\.json/,
+        `-${language}.json`,
+      );
+
+      // Jika URL berubah, fetch ulang secara diam-diam lalu timpa state ceritanya
+      if (newUrl !== activeChapterUrl) {
+        setActiveChapterUrl(newUrl);
+        axios
+          .get<ChapterData>(newUrl)
+          .then((res) => {
+            setChapterData(res.data);
+          })
+          .catch((err) =>
+            console.error("Gagal melakukan hot-swap bahasa:", err),
+          );
+      }
+    }
+  }, [language, appState, activeChapterUrl]);
 
   // RENDER MODAL
   const renderOverlay = () => {
@@ -176,21 +269,6 @@ const VisualNovel: React.FC = () => {
     if (overlay === "glossarium") {
       return <TipsOverlay onClose={() => setOverlay("none")} />;
     }
-
-    // Modal lain seperti Settings/Credits bisa dibuat komponen terpisah nanti
-    // return (
-    //   <div className="absolute inset-0 z-100 bg-black/80 flex items-center justify-center">
-    //     <div className="bg-[#0f1115] p-8 border border-white/10 text-white">
-    //       <p>UI {overlay} belum dibuat.</p>
-    //       <button
-    //         onClick={() => setOverlay("none")}
-    //         className="mt-4 text-pink-500"
-    //       >
-    //         Close
-    //       </button>
-    //     </div>
-    //   </div>
-    // );
   };
 
   // ==========================================
@@ -234,32 +312,32 @@ const VisualNovel: React.FC = () => {
           <div className="flex flex-col gap-3 md:gap-4 w-52 md:w-64 animate-in slide-in-from-left-10 duration-1000 delay-300">
             {[
               {
-                label: "New Game",
+                label: t.mainMenu.newGame,
                 icon: <Play className="w-4 h-4 md:w-4.5 md:h-4.5" />,
                 action: startGame,
               },
               {
-                label: "Load Game",
+                label: t.mainMenu.loadGame,
                 icon: <FolderOpen className="w-4 h-4 md:w-4.5 md:h-4.5" />,
                 action: () => setOverlay("load"),
               },
               {
-                label: "Options",
+                label: t.mainMenu.options,
                 icon: <Settings className="w-4 h-4 md:w-4.5 md:h-4.5" />,
                 action: () => setOverlay("options"),
               },
               {
-                label: "Gallery",
+                label: t.mainMenu.gallery,
                 icon: <ImageIcon className="w-4 h-4 md:w-4.5 md:h-4.5" />,
                 action: () => setOverlay("gallery"),
               },
               {
-                label: "Glossarium",
+                label: t.mainMenu.glossary,
                 icon: <BookOpen className="w-4 h-4 md:w-4.5 md:h-4.5" />,
                 action: () => setOverlay("glossarium"),
               },
               {
-                label: "Credits",
+                label: t.mainMenu.credits,
                 icon: <Info className="w-4 h-4 md:w-4.5 md:h-4.5" />,
                 action: () => setOverlay("credits"),
               },
@@ -288,13 +366,13 @@ const VisualNovel: React.FC = () => {
           <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-1">
             <div className="text-center md:text-left">
               <p className="text-[16px] md:text-[20px] text-gray-500 font-mono">
-                IPXSG PROJECT
+                {t.mainMenu.footerProject}
               </p>
             </div>
 
             <div className="text-center md:text-right">
               <p className="text-[16px] md:text-[20px] text-gray-600 font-mono">
-                FAN-MADE • NOT AFFILIATED WITH QUALIARTS/CYBERAGENT
+                {t.mainMenu.footerDisclaimer}
               </p>
             </div>
           </div>

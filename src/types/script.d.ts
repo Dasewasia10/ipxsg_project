@@ -37,7 +37,7 @@ export interface ScriptLine {
   audio?: AudioCommand;
   choices?: ChoiceOption[];
   stateChanges?: StateChange[];
-  nextChapterUrl?: string;
+  nextChapterId?: string;
 }
 
 export interface ChapterData {

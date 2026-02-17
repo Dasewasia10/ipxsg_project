@@ -27,6 +27,9 @@ import type { LogEntry } from "./LogOverlay";
 import { GLOSSARY_DB } from "../data/glossary";
 import TipsOverlay from "./TipsOverlay";
 
+import { useLanguageStore } from "../store/useLanguageStore";
+import { UI_TEXT } from "../data/uiTranslations";
+
 interface Props {
   chapterData: ChapterData;
   initialBlock?: string;
@@ -94,6 +97,9 @@ const InGameUI: React.FC<Props> = ({
   const [newTipNotification, setNewTipNotification] = useState<string | null>(
     null,
   );
+
+  const { language } = useLanguageStore();
+  const t = UI_TEXT[language];
 
   const typeIntervalRef = useRef<number | null>(null);
   const bgmRef = useRef<HTMLAudioElement | null>(null);
@@ -252,8 +258,8 @@ const InGameUI: React.FC<Props> = ({
     if (!currentLine) return;
 
     // ---> LOGIKA PERPINDAHAN CHAPTER <---
-    if (currentLine.type === "change_chapter" && currentLine.nextChapterUrl) {
-      onChangeChapter(currentLine.nextChapterUrl);
+    if (currentLine.type === "change_chapter" && currentLine.nextChapterId) {
+      onChangeChapter(currentLine.nextChapterId);
       return; // Hentikan eksekusi efek lainnya di baris ini
     }
 
@@ -327,14 +333,17 @@ const InGameUI: React.FC<Props> = ({
       Object.values(GLOSSARY_DB).forEach((term) => {
         if (currentUnlocked.includes(term.id)) return; // Lewati jika sudah terbuka
 
-        const allWords = [term.title, ...term.alternatives];
+        const allWords = [
+          term.title[language],
+          ...(term.alternatives?.[language] || []),
+        ].filter((w) => w != null && w !== "");
         const hasMatch = allWords.some(
           (word) => new RegExp(`\\b${word}\\b`, "i").test(currentLine.text!), // Cari kata persis
         );
 
         if (hasMatch) {
           useGlossaryStore.getState().unlockTip(term.id);
-          newlyUnlocked = term.title;
+          newlyUnlocked = term.title[language];
         }
       });
 
@@ -407,7 +416,10 @@ const InGameUI: React.FC<Props> = ({
       const term = GLOSSARY_DB[tipId];
       if (!term) return;
 
-      const wordsToHighlight = [term.title, ...term.alternatives];
+      const wordsToHighlight = [
+        term.title[language],
+        ...(term.alternatives[language] || ""),
+      ].filter((w) => w != null && w !== "");
 
       wordsToHighlight.forEach((word) => {
         // Gunakan regex untuk mencari kata secara spesifik (case-insensitive)
@@ -446,7 +458,7 @@ const InGameUI: React.FC<Props> = ({
       >
         <div className="transform skew-x-12 flex flex-col">
           <span className="text-gray-400 font-bold tracking-wider text-[10px] uppercase">
-            Current Chapter
+            {t.overlays.currentChapter}
           </span>
           <span className="text-lg lg:text-xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-linear-to-r from-pink-400 to-purple-500">
             {chapterData.title}
@@ -543,7 +555,7 @@ const InGameUI: React.FC<Props> = ({
                 className={`flex items-center justify-start gap-3 w-full rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-widest transition-all ${showDebug ? "bg-red-500/30 text-red-400" : "text-gray-400 hover:bg-white/10 hover:text-white"}`}
               >
                 <Bug size={16} className="shrink-0" />
-                <span className="hidden sm:inline">Debug</span>
+                <span className="hidden sm:inline">{t.quickMenu.debug}</span>
               </button>
 
               <button
@@ -551,7 +563,7 @@ const InGameUI: React.FC<Props> = ({
                 className="flex items-center justify-start gap-3 w-full rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 transition-all hover:bg-white/10 hover:text-white"
               >
                 <History size={16} className="shrink-0" />
-                <span className="hidden sm:inline">Log</span>
+                <span className="hidden sm:inline">{t.quickMenu.log}</span>
               </button>
 
               <button
@@ -559,7 +571,7 @@ const InGameUI: React.FC<Props> = ({
                 className="flex items-center justify-start gap-3 w-full rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 transition-all hover:bg-white/10 hover:text-white"
               >
                 <BookOpen size={16} className="shrink-0" />
-                <span className="hidden sm:inline">Glossarium</span>
+                <span className="hidden sm:inline">{t.quickMenu.glossary}</span>
               </button>
 
               <button
@@ -570,7 +582,7 @@ const InGameUI: React.FC<Props> = ({
                 className={`flex items-center justify-start gap-3 w-full rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-widest transition-all ${isAutoPlay ? "bg-blue-500/30 text-blue-400" : "text-gray-400 hover:bg-white/10 hover:text-white"}`}
               >
                 <Play size={16} className="shrink-0" />
-                <span className="hidden sm:inline">Auto</span>
+                <span className="hidden sm:inline">{t.quickMenu.auto}</span>
               </button>
 
               <button
@@ -581,7 +593,7 @@ const InGameUI: React.FC<Props> = ({
                 className={`flex items-center justify-start gap-3 w-full rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-widest transition-all ${isSkipping ? "bg-pink-500/30 text-pink-400" : "text-gray-400 hover:bg-white/10 hover:text-white"}`}
               >
                 <FastForward size={16} className="shrink-0" />
-                <span className="hidden sm:inline">Skip</span>
+                <span className="hidden sm:inline">{t.quickMenu.skip}</span>
               </button>
 
               <button
@@ -601,7 +613,7 @@ const InGameUI: React.FC<Props> = ({
                 className="flex items-center justify-start gap-3 w-full rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 transition-all hover:bg-white/10 hover:text-white"
               >
                 <Save size={16} className="shrink-0" />
-                <span className="hidden sm:inline">Save</span>
+                <span className="hidden sm:inline">{t.quickMenu.save}</span>
               </button>
 
               <button
@@ -621,7 +633,7 @@ const InGameUI: React.FC<Props> = ({
                 className="flex items-center justify-start gap-3 w-full rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 transition-all hover:bg-white/10 hover:text-white"
               >
                 <FolderOpen size={16} className="shrink-0" />
-                <span className="hidden sm:inline">Load</span>
+                <span className="hidden sm:inline">{t.quickMenu.load}</span>
               </button>
 
               <button
@@ -641,7 +653,7 @@ const InGameUI: React.FC<Props> = ({
                 className="flex items-center justify-start gap-3 w-full rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 transition-all hover:bg-white/10 hover:text-white"
               >
                 <Settings size={16} className="shrink-0" />
-                <span className="hidden sm:inline">Options</span>
+                <span className="hidden sm:inline">{t.quickMenu.options}</span>
               </button>
 
               <button
@@ -653,7 +665,7 @@ const InGameUI: React.FC<Props> = ({
                 className="flex items-center justify-start gap-3 w-full rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 transition-all hover:bg-white/10 hover:text-white"
               >
                 <LogOut size={16} className="shrink-0" />
-                <span className="hidden sm:inline">Menu</span>
+                <span className="hidden sm:inline">{t.quickMenu.menu}</span>
               </button>
             </div>
           </div>
@@ -702,23 +714,23 @@ const InGameUI: React.FC<Props> = ({
         <div className="absolute inset-0 z-200 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <div className="w-full max-w-sm bg-[#151921] border border-white/20 p-6 shadow-2xl animate-in zoom-in-95">
             <h3 className="text-lg font-bold uppercase text-yellow-400 mb-2">
-              Kembali ke Menu Utama?
+              {t.overlays.quitWarningTitle}
             </h3>
             <p className="text-gray-300 text-sm mb-6">
-              Progres kamu yang belum di-save akan hilang.
+              {t.overlays.quitWarningDesc}
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowQuitConfirm(false)}
                 className="px-4 py-2 text-xs font-bold uppercase text-gray-400 hover:text-white"
               >
-                Batal
+                {t.overlays.back}
               </button>
               <button
                 onClick={onQuit}
                 className="px-4 py-2 text-xs font-bold uppercase bg-pink-600 hover:bg-pink-500 text-white rounded"
               >
-                Ya, Keluar
+                {t.overlays.yesLeave}
               </button>
             </div>
           </div>
@@ -732,7 +744,7 @@ const InGameUI: React.FC<Props> = ({
         <BookOpen className="text-yellow-400" size={20} />
         <div className="flex flex-col">
           <span className="text-gray-400 font-bold tracking-wider text-[8px] uppercase">
-            GLOSSARIUM Unlocked
+            {t.overlays.tipsUnlocked}
           </span>
           <span className="text-sm font-bold uppercase tracking-widest text-yellow-400">
             {newTipNotification}

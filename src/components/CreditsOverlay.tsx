@@ -1,13 +1,18 @@
 import { X, Info } from "lucide-react";
+import { useLanguageStore } from "../store/useLanguageStore";
+import { UI_TEXT } from "../data/uiTranslations";
 
 export default function CreditsOverlay({ onClose }: { onClose: () => void }) {
+  const { language } = useLanguageStore();
+  const t = UI_TEXT[language];
+
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-300 font-sans">
       <div className="relative flex w-full max-w-3xl h-[80vh] flex-col bg-[#0f1115] border border-white/10 shadow-2xl overflow-hidden">
         {/* Header dengan Tombol Close */}
         <div className="flex items-center justify-between border-b border-white/10 bg-white/5 p-6">
           <h2 className="flex items-center gap-3 text-2xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-linear-to-r from-pink-400 to-purple-500">
-            <Info className="text-pink-400" /> Credits
+            <Info className="text-pink-400" /> {t.overlays.creditTitle}
           </h2>
           <button
             onClick={onClose}
@@ -34,14 +39,14 @@ export default function CreditsOverlay({ onClose }: { onClose: () => void }) {
             <div className="space-y-8 w-full border-b border-white/10 pb-12">
               <div className="space-y-2">
                 <h3 className="text-gray-500 font-bold uppercase tracking-widest text-sm">
-                  Director & Writer
+                  {t.overlays.creditDirector}
                 </h3>
                 <p className="text-xl font-medium text-gray-200">Dasewasia</p>
               </div>
 
               <div className="space-y-2">
                 <h3 className="text-gray-500 font-bold uppercase tracking-widest text-sm">
-                  Based on the work by
+                  {t.overlays.creditDisclaimer}
                   {/* Original 'IDOLY PRIDE' IP By */}
                 </h3>
                 <p className="text-lg font-medium text-gray-200">
@@ -51,7 +56,7 @@ export default function CreditsOverlay({ onClose }: { onClose: () => void }) {
 
               <div className="space-y-2">
                 <h3 className="text-gray-500 font-bold uppercase tracking-widest text-sm">
-                  Engine Programmer
+                  {t.overlays.creditEngine}
                 </h3>
                 <p className="text-lg font-medium text-gray-200">
                   React.js & Tailwind CSS v4
@@ -62,13 +67,13 @@ export default function CreditsOverlay({ onClose }: { onClose: () => void }) {
             {/* --- ASSET CREDITS (PLACEHOLDERS) --- */}
             <div className="space-y-8 w-full pt-4">
               <h3 className="text-2xl font-black uppercase tracking-widest text-pink-500 mb-6">
-                External Assets
+                {t.overlays.creditExAssets}
               </h3>
 
               {/* BGM & SFX */}
               <div className="space-y-2">
                 <h4 className="text-gray-500 font-bold uppercase tracking-widest text-sm">
-                  BGM & Sound Effects
+                  {t.overlays.creditBgm}
                 </h4>
                 <div className="text-md font-medium text-gray-300 space-y-1">
                   <p>
@@ -86,7 +91,7 @@ export default function CreditsOverlay({ onClose }: { onClose: () => void }) {
                   <p>[Nama Kreator / Situs] - Judul Lagu BGM</p>
                   <p>[Nama Kreator / Situs] - Judul SFX</p>
                   <p className="text-sm text-gray-500 italic">
-                    "Terima kasih atas lisensi penggunaan aset audionya."
+                    {t.overlays.creditBgmThanks}
                   </p>
                 </div>
               </div>
@@ -94,7 +99,7 @@ export default function CreditsOverlay({ onClose }: { onClose: () => void }) {
               {/* Visual & Fanart */}
               <div className="space-y-2 pt-4">
                 <h4 className="text-gray-500 font-bold uppercase tracking-widest text-sm">
-                  Visual & Fanart
+                  {t.overlays.creditArt}
                 </h4>
                 <div className="text-md font-medium text-gray-300 space-y-1">
                   <p>
@@ -120,19 +125,22 @@ export default function CreditsOverlay({ onClose }: { onClose: () => void }) {
                     </a>
                     )
                   </p>
+                  <p className="text-sm text-gray-500 italic">
+                    {t.overlays.creditArtThanks}
+                  </p>
                 </div>
               </div>
 
               {/* Other Assets */}
               <div className="space-y-2 pt-4">
                 <h4 className="text-gray-500 font-bold uppercase tracking-widest text-sm">
-                  Special Thanks / Others
+                  {t.overlays.creditThanks}
                 </h4>
                 <div className="text-md font-medium text-gray-300 space-y-1">
                   <p>
                     stream - Latar Belakang (Background) Placeholder (
                     <a
-                    className="text-amber-300"
+                      className="text-amber-300"
                       href="https://www.pixiv.net/en/artworks/47074841"
                       target="_blank"
                       rel="noopener noreferrer"
@@ -149,7 +157,7 @@ export default function CreditsOverlay({ onClose }: { onClose: () => void }) {
 
             {/* --- KUTIPAN PENUTUP --- */}
             <div className="mt-20 pt-10 text-pink-500 italic font-bold">
-              "Tidak peduli timeline mana pun, aku akan menyelamatkanmu."
+              {t.overlays.creditQuote}
             </div>
           </div>
         </div>
