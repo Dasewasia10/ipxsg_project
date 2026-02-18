@@ -57,7 +57,7 @@ const VisualNovel: React.FC = () => {
   const menuBgmRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    const audio = new Audio("https://api.dasewasia.my.id/bgm/shed-01.m4a");
+    const audio = new Audio("https://vnassets.dasewasia.my.id/bgm/shed-01.m4a");
     audio.loop = true;
     menuBgmRef.current = audio;
 
@@ -316,7 +316,7 @@ const VisualNovel: React.FC = () => {
           className="absolute inset-0 bg-cover bg-center opacity-60 scale-105 animate-[pulse_10s_ease-in-out_infinite_alternate]"
           style={{
             backgroundImage:
-              "url('https://api.dasewasia.my.id/bg/nightsky-night.webp')",
+              "url('https://vnassets.dasewasia.my.id/bg/nightsky-night.webp')",
           }} // Bisa diganti Key Visual lain
         />
         <div className="absolute inset-0 bg-linear-to-r from-black via-black/80 to-transparent" />
